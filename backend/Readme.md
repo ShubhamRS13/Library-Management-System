@@ -1,4 +1,4 @@
-# Backend Setup (FastAPI):
+# Backend Setup (FastAPI)
 
 ```bash
 # bash/terminal
