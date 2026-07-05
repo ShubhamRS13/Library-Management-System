@@ -1,0 +1,77 @@
+from __future__ import annotations
+
+from datetime import datetime
+from typing import Optional
+
+from sqlalchemy import Column, Integer, String, Boolean, DateTime
+from sqlalchemy.dialects.postgresql import ARRAY
+from sqlmodel import Field, Relationship, SQLModel
+
+
+class Book(SQLModel, table=True):
+    __tablename__ = "book"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    title: str = Field(index=True)
+    author: str = Field(index=True)
+    isbn: str = Field(unique=True, index=True)
+    summary: Optional[str] = Field(default=None)
+    tags: Optional[str] = Field(default=None)
+
+    copies: list["BookCopy"] = Relationship(back_populates="book")
+    loans: list["Loan"] = Relationship(back_populates="book")
+    relations: list["BookRelation"] = Relationship(back_populates="book")
+
+
+class BookCopy(SQLModel, table=True):
+    __tablename__ = "bookcopy"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    book_id: Optional[int] = Field(default=None, foreign_key="book.id")
+    is_available: bool = Field(default=True, sa_column=Column(Boolean))
+    condition: str = Field(default="good")
+
+    book: Optional[Book] = Relationship(back_populates="copies")
+
+
+class BookRelation(SQLModel, table=True):
+    __tablename__ = "bookrelation"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    book_id: Optional[int] = Field(default=None, foreign_key="book.id")
+    related_book_ids: Optional[list[int]] = Field(
+        default=None,
+        sa_column=Column(ARRAY(Integer)),
+    )
+
+    book: Optional[Book] = Relationship(back_populates="relations")
+
+
+class Member(SQLModel, table=True):
+    __tablename__ = "member"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    first_name: str = Field(index=True)
+    last_name: str = Field(index=True)
+    email: str = Field(unique=True, index=True)
+    phone_number: str = Field(index=True)
+    address: Optional[str] = Field(default=None)
+    membership_status: str = Field(default="active")
+    join_date: datetime = Field(default_factory=datetime.utcnow, sa_column=Column(DateTime(timezone=True)))
+    last_activity_date: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True)))
+    total_loan_count: int = Field(default=0)
+
+    loans: list["Loan"] = Relationship(back_populates="member")
+
+
+class Loan(SQLModel, table=True):
+    __tablename__ = "loan"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    book_id: Optional[int] = Field(default=None, foreign_key="book.id")
+    member_id: Optional[int] = Field(default=None, foreign_key="member.id")
+    load_date: datetime = Field(default_factory=datetime.utcnow, sa_column=Column(DateTime(timezone=True)))
+    return_date: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True)))
+
+    book: Optional[Book] = Relationship(back_populates="loans")
+    member: Optional[Member] = Relationship(back_populates="loans")

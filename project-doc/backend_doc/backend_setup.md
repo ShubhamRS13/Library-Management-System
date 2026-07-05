@@ -3,16 +3,13 @@
 This document contain the information about BACKEND support and related documents.
 Key points in document:
 
-1. Infrastructure & Database Design
-2.
-
 ---
 
 ## Phase 1. Infrastructure & Database Design
 
 1. Project setup - install all related packages - fastapi, uvicorn, pydentic-ai, alembic. for `requirements.txt`.
 2. Configure the dotenv file.
-3. Define the models
+3. Define the models & database structure
 4. Database migration & initialization
 
 ## Phase 2. Core Backend Logic (CRUD & Routers)
