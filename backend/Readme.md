@@ -14,7 +14,7 @@ source .venv/bin/activate
 
 # Then install packages:
 pip install -r requirements.txt
-# when you add the packages use pip freeze > requirements.txt to store it s version in requirements.txt
+# when you add the packages use `pip freeze > requirements.txt` to store it s version in requirements.txt
 
 # Run the Project (API):
 uvicorn main:app --reload
