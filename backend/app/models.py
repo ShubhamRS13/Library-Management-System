@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 
-from sqlalchemy import Column, Integer, String, Boolean, DateTime
+from sqlalchemy import Column, Integer, Boolean, DateTime
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlmodel import Field, Relationship, SQLModel
 
@@ -75,3 +75,51 @@ class Loan(SQLModel, table=True):
 
     book: Optional[Book] = Relationship(back_populates="loans")
     member: Optional[Member] = Relationship(back_populates="loans")
+
+
+class BookListItem(SQLModel):
+    id: int
+    title: str
+    author: str
+    isbn: str
+    summary: Optional[str] = None
+    tags: Optional[str] = None
+
+
+class CopyInfo(SQLModel):
+    id: int
+    is_available: bool
+    condition: str
+
+
+class HolderInfo(SQLModel):
+    member_id: int
+    first_name: str
+    last_name: str
+    phone_number: Optional[str] = None
+
+
+class LoanInfo(SQLModel):
+    id: int
+    member_id: int
+    member_first_name: str
+    member_last_name: str
+    load_date: datetime
+    return_date: Optional[datetime] = None
+
+
+class BookDetailResponse(SQLModel):
+    id: int
+    title: str
+    author: str
+    isbn: str
+    summary: Optional[str] = None
+    tags: Optional[str] = None
+    available_copies_count: int = 0
+    copies: List[CopyInfo] = []
+    current_holders: List[HolderInfo] = []
+    loan_history: List[LoanInfo] = []
+
+class BulkBookUploadResponse(SQLModel):
+    created: List[Book]
+    failed: List[dict]

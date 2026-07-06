@@ -12,8 +12,8 @@ Fields:
 2. title
 3. author
 4. isbn
-5. summary (optional)
-6. tags (optional)
+5. summary (optional) - 500 char max (single paragraph)
+6. tags (optional) - should be in lowercase, and no space no special character, no '-' and no '_'
 
 ### 2. BookCopy
 
