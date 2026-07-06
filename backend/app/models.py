@@ -136,3 +136,44 @@ class BookCreateRequest(SQLModel):
 class BulkBookUploadResponse(SQLModel):
     created: List[Book]
     failed: List[dict]
+
+
+class MemberCreate(SQLModel):
+    first_name: str
+    last_name: str
+    email: str
+    phone_number: str
+    address: Optional[str] = None
+
+
+class MemberUpdate(SQLModel):
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    email: Optional[str] = None
+    phone_number: Optional[str] = None
+    address: Optional[str] = None
+
+
+class MemberLoanInfo(SQLModel):
+    id: int
+    book_id: int
+    book_title: str
+    book_author: str
+    load_date: datetime
+    return_date: Optional[datetime] = None
+
+
+class MemberDetailResponse(SQLModel):
+    id: int
+    first_name: str
+    last_name: str
+    email: str
+    phone_number: str
+    address: Optional[str] = None
+    membership_status: str
+    join_date: datetime
+    last_activity_date: Optional[datetime] = None
+    total_loan_count: int
+    active_loans: List[MemberLoanInfo] = []
+    recent_loans: List[MemberLoanInfo] = []
+
