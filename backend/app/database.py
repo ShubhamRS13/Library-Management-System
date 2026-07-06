@@ -1,19 +1,22 @@
 import os
-from sqlmodel import create_engine, SQLModel, Session
-from dotenv import load_dotenv
+from typing import AsyncGenerator
 
-# Load variables from .env
+from dotenv import load_dotenv
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+
 load_dotenv()
 
-# Get the URL from .env
 DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
 if DATABASE_URL.startswith("postgresql://"):
     DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg://", 1)
 
-# Create the engine
-# Note: psycopg (v3) uses 'postgresql+psycopg' as the dialect
-engine = create_engine(DATABASE_URL, echo=True)
+engine = create_async_engine(DATABASE_URL, echo=True, future=True)
 
-def get_session():
-    with Session(engine) as session:
+AsyncSessionLocal = async_sessionmaker(
+    bind=engine,
+    expire_on_commit=False,
+)
+
+async def get_session() -> AsyncGenerator[AsyncSession, None]:
+    async with AsyncSessionLocal() as session:
         yield session

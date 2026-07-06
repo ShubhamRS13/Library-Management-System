@@ -1,4 +1,4 @@
-# Backend Setup (FastAPI):
+# Backend Setup (FastAPI)
 
 ```bash
 # bash/terminal
@@ -29,6 +29,7 @@ Avoid loose version like fastapi>=0.100
 ## Database schema alembic instructions
 
 > When ever you made changes in `models.py` i.e schema always follow steps:
+
 1. run commad `alembic revision --autogenerate -m "commit_meessage_like_git"` 
 2. Insure new version file is added in alembic/versions/ and in that file `import sqlmodel` is present.
 3. Run commad alembic upgrade head.

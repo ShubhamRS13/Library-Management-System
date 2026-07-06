@@ -61,3 +61,5 @@ Field:
 
 - `book` to `loan`: One-to-Many. A single book can be loaned out multiple times over its lifetime, but only one "active" loan at a time.
 - `member` to `loan`: One-to-Many. A member can have multiple historical loan records.
+- `book` to `bookcopy`: one to many.
+- `book` to `bookrelation`: one to many.
