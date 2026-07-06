@@ -1,10 +1,17 @@
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Body, Depends, Query
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.database import get_session
-from app.models import Book, BulkBookUploadResponse, BookListItem, BookDetailResponse, BookUpdate
+from app.models import (
+    Book,
+    BookCreateRequest,
+    BookUpdate,
+    BulkBookUploadResponse,
+    BookListItem,
+    BookDetailResponse,
+)
 from app.services import books_service
 
 
@@ -12,16 +19,25 @@ router = APIRouter()
 
 
 @router.post("/", response_model=Book)
-async def create_book(book: Book, session: AsyncSession = Depends(get_session)):
+async def create_book(book_request: BookCreateRequest, session: AsyncSession = Depends(get_session)):
     """
-    Add a new book title to the library inventory.
+    Add a new book title to the library inventory with specified number of copies.
     """
-    return await books_service.create_book(book, session)
+    book = Book(
+        title=book_request.title,
+        author=book_request.author,
+        isbn=book_request.isbn,
+        summary=book_request.summary,
+        tags=book_request.tags,
+    )
+    return await books_service.create_book(book, session, copy_count=book_request.copy_count)
 
 @router.post("/bulk", response_model=BulkBookUploadResponse)
-async def create_books(books: List[Book], session: AsyncSession = Depends(get_session)):
+async def create_books(
+    books: List[BookCreateRequest], session: AsyncSession = Depends(get_session)
+):
     """
-    Add multiple new book titles to the library inventory.
+    Add multiple new book titles to the library inventory with specified copy counts.
     """
     return await books_service.create_books_bulk(books, session)
 
@@ -30,7 +46,7 @@ async def read_books(
     title: Optional[str] = None,
     author: Optional[str] = None,
     isbn: Optional[str] = None,
-    tags: Optional[List[str]] = None,
+    tags: Optional[List[str]] = Query(None),
     limit: int = 50,
     offset: int = 0,
     session: AsyncSession = Depends(get_session),
@@ -40,17 +56,17 @@ async def read_books(
     """
     return await books_service.get_books(session, title=title, author=author, isbn=isbn, tags=tags, limit=limit, offset=offset)
 
+@router.get("/suggestions", response_model=List[BookListItem])
+async def suggestions(q: Optional[str] = None, limit: int = 10, session: AsyncSession = Depends(get_session)):
+    """Autocomplete suggestions for title/author/isbn"""
+    return await books_service.get_suggestions(session, q, limit)
+
 @router.get("/{book_id}", response_model=BookDetailResponse)
 async def read_book(book_id: int, session: AsyncSession = Depends(get_session)):
     """
     Retrieve a specific book by its ID.
     """
     return await books_service.get_book_detail(book_id, session)
-
-@router.get("/suggestions", response_model=List[BookListItem])
-async def suggestions(q: Optional[str] = None, limit: int = 10, session: AsyncSession = Depends(get_session)):
-    """Autocomplete suggestions for title/author/isbn"""
-    return await books_service.get_suggestions(session, q, limit)
 
 @router.put("/{book_id}", response_model=BookUpdate)
 async def update_book(book_id: int, book_update: BookUpdate, session: AsyncSession = Depends(get_session)):
@@ -59,19 +75,22 @@ async def update_book(book_id: int, book_update: BookUpdate, session: AsyncSessi
     """
     return await books_service.update_book(book_id, book_update, session)
 
+@router.delete("/bulk")
+async def delete_books(
+    book_ids: List[int] = Body(..., example=[1, 2, 3]),
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    Remove multiple books from the library inventory.
+    """
+    return await books_service.delete_books_bulk(book_ids, session)
+
 @router.delete("/{book_id}", status_code=204)
 async def delete_book(book_id: int, session: AsyncSession = Depends(get_session)):
     """
     Remove a book from the library inventory.
     """
     return await books_service.delete_book(book_id, session)
-
-@router.delete("/bulk")
-async def delete_books(book_ids: List[int], session: AsyncSession = Depends(get_session)):
-    """
-    Remove multiple books from the library inventory.
-    """
-    return await books_service.delete_books_bulk(book_ids, session)
 
 @router.delete("/{book_id}/copies/{copy_id}", status_code=204)
 async def delete_book_copy(

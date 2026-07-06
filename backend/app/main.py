@@ -8,8 +8,8 @@ app = FastAPI(title="Library Management System Backend", version="1.0.0")
 
 app.include_router(books.router, prefix="/books", tags=["Books"])
 app.include_router(members.router, prefix="/members", tags=["Members"])
-# app.include_router(loans.router, prefix="/loans", tags=["Loans"])
-# app.include_router(ai_agent.router, prefix="/ai", tags=["AI Agent"])
+app.include_router(loans.router, prefix="/loans", tags=["Loans"])
+app.include_router(ai_agent.router, prefix="/ai", tags=["AI Agent"])
 
 @app.get("/")
 async def root():

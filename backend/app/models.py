@@ -1,28 +1,10 @@
-from __future__ import annotations
-
 from datetime import datetime
 from typing import List, Optional
 
 from sqlalchemy import Column, Integer, Boolean, DateTime
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlmodel import Field, Relationship, SQLModel
-
-
-class Book(SQLModel, table=True):
-    __tablename__ = "book"
-
-    id: Optional[int] = Field(default=None, primary_key=True)
-    title: str = Field(index=True)
-    author: str = Field(index=True)
-    isbn: str = Field(unique=True, index=True)
-    summary: Optional[str] = Field(default=None)
-    tags: Optional[str] = Field(default=None)
-
-    copies: list["BookCopy"] = Relationship(back_populates="book")
-    loans: list["Loan"] = Relationship(back_populates="book")
-    relations: list["BookRelation"] = Relationship(back_populates="book")
-
-
+# from sqlalchemy.orm import Mapped
 class BookCopy(SQLModel, table=True):
     __tablename__ = "bookcopy"
 
@@ -31,7 +13,7 @@ class BookCopy(SQLModel, table=True):
     is_available: bool = Field(default=True, sa_column=Column(Boolean))
     condition: str = Field(default="good")
 
-    book: Optional[Book] = Relationship(back_populates="copies")
+    book: Optional["Book"] = Relationship(back_populates="copies")  # Keep this as-is
 
 
 class BookRelation(SQLModel, table=True):
@@ -44,9 +26,21 @@ class BookRelation(SQLModel, table=True):
         sa_column=Column(ARRAY(Integer)),
     )
 
-    book: Optional[Book] = Relationship(back_populates="relations")
+    book: Optional["Book"] = Relationship(back_populates="relations")  # Keep this as-is
 
 
+class Loan(SQLModel, table=True):
+    __tablename__ = "loan"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    book_id: Optional[int] = Field(default=None, foreign_key="book.id")
+    member_id: Optional[int] = Field(default=None, foreign_key="member.id")
+    load_date: datetime = Field(default_factory=datetime.utcnow, sa_column=Column(DateTime(timezone=True)))
+    return_date: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True)))
+
+    book: Optional["Book"] = Relationship(back_populates="loans")  # Keep this as-is
+    member: Optional["Member"] = Relationship(back_populates="loans")  # Keep this as-is
+    
 class Member(SQLModel, table=True):
     __tablename__ = "member"
 
@@ -61,20 +55,21 @@ class Member(SQLModel, table=True):
     last_activity_date: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True)))
     total_loan_count: int = Field(default=0)
 
-    loans: list["Loan"] = Relationship(back_populates="member")
+    loans: List["Loan"] = Relationship(back_populates="member")
 
-
-class Loan(SQLModel, table=True):
-    __tablename__ = "loan"
+class Book(SQLModel, table=True):
+    __tablename__ = "book"
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    book_id: Optional[int] = Field(default=None, foreign_key="book.id")
-    member_id: Optional[int] = Field(default=None, foreign_key="member.id")
-    load_date: datetime = Field(default_factory=datetime.utcnow, sa_column=Column(DateTime(timezone=True)))
-    return_date: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True)))
+    title: str = Field(index=True)
+    author: str = Field(index=True)
+    isbn: str = Field(unique=True, index=True)
+    summary: Optional[str] = Field(default=None)
+    tags: Optional[str] = Field(default=None)
 
-    book: Optional[Book] = Relationship(back_populates="loans")
-    member: Optional[Member] = Relationship(back_populates="loans")
+    copies: List["BookCopy"] = Relationship(back_populates="book")
+    loans: List["Loan"] = Relationship(back_populates="book")
+    relations: List["BookRelation"] = Relationship(back_populates="book")
 
 
 class BookListItem(SQLModel):
@@ -119,6 +114,24 @@ class BookDetailResponse(SQLModel):
     copies: List[CopyInfo] = []
     current_holders: List[HolderInfo] = []
     loan_history: List[LoanInfo] = []
+
+class BookUpdate(SQLModel):
+    title: Optional[str] = None
+    author: Optional[str] = None
+    isbn: Optional[str] = None
+    summary: Optional[str] = None
+    tags: Optional[str] = None
+    add_copies: Optional[int] = 0
+
+
+class BookCreateRequest(SQLModel):
+    title: str
+    author: str
+    isbn: str
+    summary: Optional[str] = None
+    tags: Optional[str] = None
+    copy_count: int = 1
+
 
 class BulkBookUploadResponse(SQLModel):
     created: List[Book]
