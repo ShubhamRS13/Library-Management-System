@@ -11,9 +11,28 @@ async def create_book(book: Book, session: AsyncSession = Depends(get_session)):
     """
     Add a new book title to the library inventory.
     """
-    # Write logic to add single book and its copies to the inventory
-    # Logic to add a new book goes here
-    pass
+    from sqlmodel import select
+
+    # Check if a book with the same ISBN already exists
+    statement = select(Book).where(Book.isbn == book.isbn)
+    result = await session.execute(statement)
+    existing_book = result.scalars().first()
+    if existing_book:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Book with ISBN '{book.isbn}' already exists."
+        )
+
+    # Explicitly link and add copies if provided
+    if book.copies:
+        for copy in book.copies:
+            copy.book = book
+            session.add(copy)
+
+    session.add(book)
+    await session.commit()
+    await session.refresh(book, ["copies"])
+    return book
 
 @router.post("/bulk", response_model=List[Book])
 async def create_books(books: List[Book], session: AsyncSession = Depends(get_session)):
