@@ -1,65 +1,54 @@
-
-# Frontend setup (Next.js)
-
-```bash 
-# bash/terminal
-cd .\frontend\
-npm intall
-
-# When installing dependencies on a fresh machine
-npm ci
-
-# Start the project (app):
-npm run dev
-```
-
 # Library Management System — Frontend
 
-Next.js (App Router) + TypeScript + Tailwind CSS frontend, scaffolded ahead of the backend.
-All pages currently run on mock data in `src/lib/mockData.ts` so you can develop UI without
-waiting on FastAPI.
+Next.js (App Router) + TypeScript + Tailwind CSS. Mirrors the real FastAPI
+backend schema, plus a mock multi-tenant auth layer so multiple libraries
+can register and log in separately. Runs entirely on mock data for now.
 
 ## Setup
 
-1. Unzip this folder and open it in VS Code.
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Run the dev server:
-   ```bash
-   npm run dev
-   ```
-4. Open http://localhost:3000
-
-## Connecting to the backend later
-
-1. Update `.env.local` with your FastAPI URL (default is already `http://localhost:8000`).
-2. Replace the mock data imports in each page (`src/lib/mockData.ts`) with real calls through
-   `src/lib/api.ts` — every page already has a `// TODO: replace with apiFetch(...)` comment
-   showing exactly what to swap in.
-3. Wire up real auth by saving the JWT/token from `/auth/login` using `src/lib/auth.ts`.
-
-## Structure
-
+```bash
+npm install
+npm run dev
 ```
-src/
-├── app/              Routes (App Router) — one folder per page
-├── components/       Reusable UI, grouped by feature (books, borrow, ai, layout)
-├── lib/              api.ts (fetch wrapper), auth.ts (token helpers), mockData.ts
-├── hooks/            useAuth.ts
-└── types/            Shared TypeScript interfaces
-```
+Open http://localhost:3000
 
-## Pages included
+Demo login: `demo@library.com` / `demo1234` — or register a new library to
+see a completely separate, empty account.
 
-| Route | Purpose |
-|---|---|
-| `/` | Home |
-| `/login`, `/register` | Auth |
-| `/books`, `/books/[id]` | Catalog + detail |
-| `/search` | Keyword / semantic search |
-| `/ai-assistant` | Pydantic AI chat UI |
-| `/my-books` | Borrow history |
-| `/admin`, `/admin/books`, `/admin/members` | Admin dashboard |
+## How it works
 
+- **`src/lib/auth.tsx`** — mock registration/login/logout + session
+  persistence (localStorage). Wraps the whole app.
+- **`src/lib/store.tsx`** — catalog data (books/members/loans), scoped to
+  whichever library is currently logged in. Every page reads/writes through
+  `useLibrary()`, never touching mock data directly.
+- **`src/components/auth/RequireAuth.tsx`** — wraps every protected page,
+  redirecting to `/login` if no library is signed in.
+
+**See `connect.md`** for the full guide to wiring up the real backend,
+including what the backend needs to add to support real auth and
+multi-tenancy (it currently has neither).
+
+## Pages
+
+| Route | Purpose | Protected? |
+|---|---|---|
+| `/` | Public landing page | No |
+| `/login`, `/register` | Library account auth | No |
+| `/books` | Catalog with search | Yes |
+| `/books/[id]` | Book detail — manage copies, check out, return, add copies | Yes |
+| `/admin` | Dashboard stats | Yes |
+| `/admin/books` | Add/delete book titles | Yes |
+| `/admin/members` | Add members, update status | Yes |
+| `/admin/loans` | All loans, return action | Yes |
+| `/ai-assistant` | Placeholder chat UI (Phase 3 — not built on the backend yet) | Yes |
+
+## Data model
+
+`src/types/index.ts` mirrors `app/models.py` in the backend field-for-field:
+`Book`, `BookCopy`, `BookRelation`, `Member`, `Loan`. Two additions beyond
+the real backend schema, both clearly flagged in the file and in
+`connect.md`:
+- `Loan.copy_id` — the real `Loan` table only has `book_id`, not a specific copy.
+- `LibraryAccount` + `library_id` on `Book`/`Member`/`Loan` — multi-tenancy,
+  entirely mocked until the backend adds a `library` table and auth.
