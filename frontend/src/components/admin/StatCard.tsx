@@ -1,8 +1,25 @@
-export default function StatCard({ label, value }: { label: string; value: number | string }) {
+import type { LucideIcon } from "lucide-react";
+
+export default function StatCard({
+  label,
+  value,
+  icon: Icon,
+}: {
+  label: string;
+  value: number | string;
+  icon?: LucideIcon;
+}) {
   return (
-    <div className="rounded-lg border border-gray-200 bg-white px-5 py-4">
-      <p className="text-2xl font-semibold text-brand-700">{value}</p>
-      <p className="mt-1 text-sm text-gray-500">{label}</p>
+    <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-medium uppercase tracking-wide text-gray-400">{label}</p>
+        {Icon && (
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
+            <Icon size={16} />
+          </div>
+        )}
+      </div>
+      <p className="mt-2 text-3xl font-semibold tracking-tight text-gray-900">{value}</p>
     </div>
   );
 }

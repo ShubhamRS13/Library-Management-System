@@ -1,11 +1,10 @@
 "use client";
 
-import RequireAuth from "@/components/auth/RequireAuth";
 import { useState } from "react";
 import { useLibrary } from "@/lib/store";
 import type { Member } from "@/types";
 
-function AdminMembersPageContent() {
+export default function AdminMembersPage() {
   const { members, addMember, updateMemberStatus } = useLibrary();
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({
@@ -27,7 +26,7 @@ function AdminMembersPageContent() {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-gray-900">Manage members</h1>
+        <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Manage members</h1>
         <button
           onClick={() => setShowForm((v) => !v)}
           className="rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
@@ -39,7 +38,7 @@ function AdminMembersPageContent() {
       {showForm && (
         <form
           onSubmit={handleSubmit}
-          className="grid grid-cols-1 gap-3 rounded-lg border border-gray-200 bg-white p-6 sm:grid-cols-2"
+          className="grid grid-cols-1 gap-3 rounded-xl border border-gray-200 bg-white shadow-sm p-6 sm:grid-cols-2"
         >
           <input
             required
@@ -85,9 +84,9 @@ function AdminMembersPageContent() {
         </form>
       )}
 
-      <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
+      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
         <table className="w-full text-left text-sm">
-          <thead className="bg-gray-50 text-gray-500">
+          <thead className="bg-gray-50/80 text-xs font-medium uppercase tracking-wide text-gray-500">
             <tr>
               <th className="px-4 py-3 font-medium">Name</th>
               <th className="px-4 py-3 font-medium">Email</th>
@@ -98,7 +97,7 @@ function AdminMembersPageContent() {
           </thead>
           <tbody>
             {members.map((member) => (
-              <tr key={member.id} className="border-t border-gray-100">
+              <tr key={member.id} className="border-t border-gray-100 hover:bg-gray-50/60">
                 <td className="px-4 py-3 text-gray-800">
                   {member.first_name} {member.last_name}
                 </td>
@@ -124,13 +123,5 @@ function AdminMembersPageContent() {
         </table>
       </div>
     </div>
-  );
-}
-
-export default function AdminMembersPage() {
-  return (
-    <RequireAuth>
-      <AdminMembersPageContent />
-    </RequireAuth>
   );
 }
