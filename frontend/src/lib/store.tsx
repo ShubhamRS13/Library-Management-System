@@ -20,7 +20,7 @@ import { useAuth } from "@/lib/auth";
 // auth + a library_id foreign key exist there — see connect.md.
 // ---------------------------------------------------------------------------
 
-interface NewBookInput {
+export interface NewBookInput {
   title: string;
   author: string;
   isbn: string;
@@ -42,6 +42,7 @@ interface LibraryContextValue {
   members: Member[];
   loans: Loan[];
   addBook: (input: NewBookInput) => void;
+  bulkAddBooks: (inputs: NewBookInput[]) => void;
   deleteBook: (bookId: number) => void;
   addCopy: (bookId: number, condition: string) => void;
   checkoutCopy: (bookId: number, copyId: number, memberId: number) => void;
@@ -86,6 +87,34 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
         copies,
       },
     ]);
+  }
+
+  function bulkAddBooks(inputs: NewBookInput[]) {
+    setAllBooks((prev) => {
+      let nextBookId = Math.max(0, ...prev.map((b) => b.id)) + 1;
+      let nextCopyId = Math.max(0, ...prev.flatMap((b) => b.copies.map((c) => c.id))) + 1;
+      const newBooks: Book[] = inputs.map((input) => {
+        const copies = Array.from({ length: Math.max(1, input.initialCopies) }, () => ({
+          id: nextCopyId++,
+          book_id: nextBookId,
+          is_available: true,
+          condition: "good",
+        }));
+        const book: Book = {
+          id: nextBookId,
+          title: input.title,
+          author: input.author,
+          isbn: input.isbn,
+          summary: input.summary || null,
+          tags: input.tags || null,
+          library_id: libraryId,
+          copies,
+        };
+        nextBookId++;
+        return book;
+      });
+      return [...prev, ...newBooks];
+    });
   }
 
   function deleteBook(bookId: number) {
@@ -209,6 +238,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
         members,
         loans,
         addBook,
+        bulkAddBooks,
         deleteBook,
         addCopy,
         checkoutCopy,
