@@ -6,7 +6,11 @@ interface ApiOptions extends RequestInit {
 
 /**
  * Thin wrapper around fetch for talking to the FastAPI backend.
- * Once the backend is running, every request in the app should go through this.
+ * Once real endpoints exist, calls look like:
+ *   apiFetch<Book[]>("/books/")
+ *   apiFetch<Book>("/books/", { method: "POST", body: JSON.stringify(newBook) })
+ * See connect.md for the full endpoint list and how each one maps to
+ * src/lib/store.tsx.
  */
 export async function apiFetch<T>(path: string, options: ApiOptions = {}): Promise<T> {
   const { token, headers, ...rest } = options;
