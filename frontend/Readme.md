@@ -57,8 +57,11 @@ the individual pages need to wrap themselves in it — add a new page under
   public pages, auth-aware (shows Sign in/Register or Dashboard/Logout).
 - **`components/admin/StatCard.tsx`** — dashboard metric tile, optional icon.
 - **`components/admin/AddBookForm.tsx`** — single-book add form.
+- **`components/admin/EditBookModal.tsx`** — edit a book's details.
 - **`components/admin/BulkUploadCsv.tsx`** — CSV bulk upload: parses client-side,
   validates required columns, previews rows before committing.
+- **`components/admin/EditMemberModal.tsx`** — edit a member's details.
+- **`components/ui/Modal.tsx`** — generic centered modal used by both edit modals.
 - **`components/books/BookCard.tsx`** — catalog tile with an availability badge.
 
 ## Data & state (unchanged from before)

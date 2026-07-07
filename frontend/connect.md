@@ -115,12 +115,16 @@ parsing/validation and just hands off a clean array, regardless of what
 | Initial `loans` load | `GET /loans/` | Same pattern — **not registered in `main.py` yet**, see below |
 | `addBook` | `POST /books/` | **Already works today** — this is the one real endpoint |
 | `bulkAddBooks` | `POST /books/bulk` | Backend stub — the endpoint is already scaffolded in `books.py` per the routers doc, just needs the loop-and-insert logic filled in |
-| `deleteBook` | `DELETE /books/{book_id}` | Backend stub — implement there first |
+| `updateBook` | `PUT /books/{book_id}` | Backend stub |
+| `deleteBook` | `DELETE /books/{book_id}` | Backend stub |
+| `bulkDeleteBooks` | `DELETE /books/bulk` | Backend stub — send `{ ids: bookIds }` or similar in the request body, confirm shape with the backend team |
+| `addMember` | `POST /members/` | Backend stub |
+| `updateMember` | `PUT /members/{member_id}` | Backend stub |
+| `deleteMember` | `DELETE /members/{member_id}` | Backend stub |
+| `updateMemberStatus` | `PUT /members/{member_id}/status` | Backend stub |
 | `addCopy` | No dedicated endpoint yet | Likely needs a new `POST /books/{book_id}/copies` route, or extend `PUT /books/{book_id}` to accept a copies list |
 | `checkoutCopy` | `POST /loans/` | Backend stub, and `loans.router` isn't registered in `main.py` — uncomment that line first |
 | `returnLoan` | `PATCH /loans/{loan_id}/return` | Same as above |
-| `addMember` | `POST /members/` | Backend stub |
-| `updateMemberStatus` | `PUT /members/{member_id}/status` | Backend stub |
 
 ## 3. The `copy_id` gap on `Loan`
 
