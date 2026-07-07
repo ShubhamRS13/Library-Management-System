@@ -41,7 +41,7 @@ export default function ChatWindow() {
   }
 
   return (
-    <div className="flex h-[24rem] flex-col rounded-lg border border-gray-200 bg-white">
+    <div className="flex h-[24rem] flex-col rounded-xl border border-gray-200 bg-white shadow-sm">
       <div className="flex-1 space-y-3 overflow-y-auto p-4">
         {messages.map((m) => (
           <div
