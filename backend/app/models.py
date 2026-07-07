@@ -177,3 +177,20 @@ class MemberDetailResponse(SQLModel):
     active_loans: List[MemberLoanInfo] = []
     recent_loans: List[MemberLoanInfo] = []
 
+
+class LoanCreate(SQLModel):
+    book_id: int
+    member_id: int
+
+
+class LoanDetailResponse(SQLModel):
+    id: int
+    book_id: int
+    book_title: str
+    member_id: int
+    member_first_name: str
+    member_last_name: str
+    load_date: datetime
+    return_date: Optional[datetime] = None
+
+
