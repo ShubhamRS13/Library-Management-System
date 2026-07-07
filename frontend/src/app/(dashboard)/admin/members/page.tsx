@@ -1,12 +1,15 @@
 "use client";
 
 import { useState } from "react";
+import { Pencil, Trash2 } from "lucide-react";
 import { useLibrary } from "@/lib/store";
 import type { Member } from "@/types";
+import EditMemberModal from "@/components/admin/EditMemberModal";
 
 export default function AdminMembersPage() {
-  const { members, addMember, updateMemberStatus } = useLibrary();
+  const { members, addMember, updateMemberStatus, deleteMember } = useLibrary();
   const [showForm, setShowForm] = useState(false);
+  const [editingMember, setEditingMember] = useState<Member | null>(null);
   const [form, setForm] = useState({
     first_name: "",
     last_name: "",
@@ -21,6 +24,11 @@ export default function AdminMembersPage() {
     addMember(form);
     setForm({ first_name: "", last_name: "", email: "", phone_number: "", address: "" });
     setShowForm(false);
+  }
+
+  function handleDelete(member: Member) {
+    if (!confirm(`Remove ${member.first_name} ${member.last_name} from your members?`)) return;
+    deleteMember(member.id);
   }
 
   return (
@@ -93,6 +101,7 @@ export default function AdminMembersPage() {
               <th className="px-4 py-3 font-medium">Phone</th>
               <th className="px-4 py-3 font-medium">Total loans</th>
               <th className="px-4 py-3 font-medium">Status</th>
+              <th className="px-4 py-3 font-medium"></th>
             </tr>
           </thead>
           <tbody>
@@ -117,11 +126,40 @@ export default function AdminMembersPage() {
                     <option value="expired">expired</option>
                   </select>
                 </td>
+                <td className="px-4 py-3">
+                  <div className="flex justify-end gap-3">
+                    <button
+                      onClick={() => setEditingMember(member)}
+                      className="flex items-center gap-1 text-gray-600 hover:text-brand-700"
+                    >
+                      <Pencil size={14} />
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => handleDelete(member)}
+                      className="flex items-center gap-1 text-red-600 hover:text-red-700"
+                    >
+                      <Trash2 size={14} />
+                      Delete
+                    </button>
+                  </div>
+                </td>
               </tr>
             ))}
+            {members.length === 0 && (
+              <tr>
+                <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-400">
+                  No members yet — add one to get started.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
+
+      {editingMember && (
+        <EditMemberModal member={editingMember} onClose={() => setEditingMember(null)} />
+      )}
     </div>
   );
 }
