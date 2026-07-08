@@ -80,6 +80,14 @@ class BookListItem(SQLModel):
     summary: Optional[str] = None
     tags: Optional[str] = None
 
+class BookListItem(SQLModel):
+    id: int
+    title: str
+    author: str
+    isbn: str
+    summary: Optional[str] = None
+    tags: Optional[str] = None
+    available: Optional[bool] = True
 
 class CopyInfo(SQLModel):
     id: int
