@@ -20,12 +20,21 @@ export default function EditBookModal({
     summary: book.summary || "",
     tags: book.tags || "",
   });
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.title || !form.author || !form.isbn) return;
-    updateBook(book.id, form);
-    onClose();
+    setSubmitting(true);
+    setError("");
+    try {
+      await updateBook(book.id, form);
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not save changes.");
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -68,6 +77,7 @@ export default function EditBookModal({
         <p className="col-span-full text-xs text-gray-400">
           To manage physical copies, use the copies table on the book&apos;s detail page.
         </p>
+        {error && <p className="col-span-full text-sm text-red-600">{error}</p>}
         <div className="col-span-full flex justify-end gap-2">
           <button
             type="button"
@@ -78,9 +88,10 @@ export default function EditBookModal({
           </button>
           <button
             type="submit"
-            className="rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
+            disabled={submitting}
+            className="rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-gray-300"
           >
-            Save changes
+            {submitting ? "Saving..." : "Save changes"}
           </button>
         </div>
       </form>

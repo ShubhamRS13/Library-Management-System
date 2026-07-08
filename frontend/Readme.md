@@ -1,9 +1,14 @@
 # Library Management System — Frontend
 
-Next.js (App Router) + TypeScript + Tailwind CSS. A dashboard-style,
-multi-tenant library app: libraries register/log in, then manage their own
-catalog, members, and loans from a sidebar-driven interface. Runs entirely
-on mock data for now — see `connect.md` to wire up the real backend.
+Next.js (App Router) + TypeScript + Tailwind CSS. A dashboard-style library
+app: libraries register/log in (mock auth), then manage a catalog, members,
+and loans from a sidebar-driven interface.
+
+**Books, members, and loans are connected to a real FastAPI backend.** The
+AI assistant is connected to `/ai/chat`. Login/registration and "related
+books" are still mock-only. See `connect.md` for full details, including an
+important caveat: the backend has no multi-tenancy yet, so all mock
+library accounts currently share the same real data.
 
 ## Setup
 
@@ -13,8 +18,13 @@ npm run dev
 ```
 Open http://localhost:3000
 
-Demo login: `demo@library.com` / `demo1234` — or register a new library to
-see a completely separate, empty account.
+Set your backend's URL in `.env.local` (defaults to `http://localhost:8000`),
+and make sure CORS is enabled on the backend for `http://localhost:3000`
+(see `connect.md` section 0) — without it, every request will fail.
+
+Demo login: `demo@library.com` / `demo1234` — or register a new library.
+Since the backend has no tenant scoping yet, any account you log into or
+register will show the same shared book/member/loan data.
 
 ## Layout architecture
 

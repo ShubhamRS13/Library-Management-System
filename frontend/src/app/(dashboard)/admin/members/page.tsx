@@ -18,17 +18,40 @@ export default function AdminMembersPage() {
     address: "",
   });
 
-  function handleSubmit(e: React.FormEvent) {
+  const [formError, setFormError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.first_name || !form.last_name || !form.email || !form.phone_number) return;
-    addMember(form);
-    setForm({ first_name: "", last_name: "", email: "", phone_number: "", address: "" });
-    setShowForm(false);
+    setSubmitting(true);
+    setFormError("");
+    try {
+      await addMember(form);
+      setForm({ first_name: "", last_name: "", email: "", phone_number: "", address: "" });
+      setShowForm(false);
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : "Could not save this member.");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
-  function handleDelete(member: Member) {
+  async function handleDelete(member: Member) {
     if (!confirm(`Remove ${member.first_name} ${member.last_name} from your members?`)) return;
-    deleteMember(member.id);
+    try {
+      await deleteMember(member.id);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Could not delete this member.");
+    }
+  }
+
+  async function handleStatusChange(memberId: number, status: Member["membership_status"]) {
+    try {
+      await updateMemberStatus(memberId, status);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Could not update member status.");
+    }
   }
 
   return (
@@ -83,11 +106,13 @@ export default function AdminMembersPage() {
             onChange={(e) => setForm({ ...form, address: e.target.value })}
             className="col-span-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
           />
+          {formError && <p className="col-span-full text-sm text-red-600">{formError}</p>}
           <button
             type="submit"
-            className="col-span-full rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
+            disabled={submitting}
+            className="col-span-full rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-gray-300"
           >
-            Save member
+            {submitting ? "Saving..." : "Save member"}
           </button>
         </form>
       )}
@@ -117,7 +142,7 @@ export default function AdminMembersPage() {
                   <select
                     value={member.membership_status}
                     onChange={(e) =>
-                      updateMemberStatus(member.id, e.target.value as Member["membership_status"])
+                      handleStatusChange(member.id, e.target.value as Member["membership_status"])
                     }
                     className="rounded-md border border-gray-300 px-2 py-1 text-xs focus:border-brand-500 focus:outline-none"
                   >

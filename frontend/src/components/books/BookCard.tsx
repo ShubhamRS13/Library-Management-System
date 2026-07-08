@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { Book } from "@/types";
 
 export default function BookCard({ book }: { book: Book }) {
-  const availableCount = book.copies.filter((c) => c.is_available).length;
+  const availableCount = (book.copies ?? []).filter((c) => c.is_available).length;
   const fullyOut = availableCount === 0;
 
   return (
@@ -20,7 +20,7 @@ export default function BookCard({ book }: { book: Book }) {
           fullyOut ? "bg-amber-100 text-amber-700" : "bg-green-100 text-green-700"
         }`}
       >
-        {availableCount} of {book.copies.length} available
+        {availableCount} of {(book.copies ?? []).length} available
       </span>
     </Link>
   );

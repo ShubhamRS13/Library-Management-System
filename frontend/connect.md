@@ -1,22 +1,37 @@
 # Connecting This Frontend to the Real Backend
 
-This app currently runs entirely on mock data (`src/lib/mockData.ts`),
-served through `src/lib/store.tsx`. Every page calls functions like
-`addBook()`, `checkoutCopy()`, `returnLoan()` from `useLibrary()` — none of
-them touch mock data directly. That means connecting the real backend is a
-matter of rewriting the **inside** of `store.tsx`'s functions, one at a
-time, without touching any page or component.
+## Status: books, members, and loans are now connected
+
+As of this update, `src/lib/store.tsx` calls the real backend for books,
+members, and loans (fetching on load, and for every add/edit/delete/
+checkout/return action), and `ChatWindow.tsx` calls the real `/ai/chat`
+endpoint. Nothing here uses `mockData.ts` anymore except the "related
+books" feature, which still has no backend endpoint.
+
+**⚠️ Important — multi-tenancy is now effectively disabled.** The mock
+login/register system (`src/lib/auth.tsx`, `LibraryAccount`) still gates
+access to the app, but the real backend has no `library` table, no auth,
+and no `library_id` column. That means **every registered mock library
+account now sees the exact same shared data** — there is no real isolation
+between "libraries" anymore. This was true the moment real API calls
+replaced the local mock filtering. Fixing this requires the backend
+additions described in the "Multi-tenancy & authentication" section further
+down this file — nothing has changed there, it's just now the visible,
+practical consequence of connecting the rest.
 
 ## 0. One-time setup
 
-**Set the API URL.** In `.env.local`:
+**Set the API URL.** In `.env.local`, point this at wherever your FastAPI
+server actually runs:
 ```
 NEXT_PUBLIC_API_URL=http://localhost:8000
 ```
 
 **Enable CORS on the backend.** FastAPI blocks cross-origin requests by
 default, so `http://localhost:3000` (this app) can't call
-`http://localhost:8000` (the backend) until you add this to `app/main.py`:
+`http://localhost:8000` (the backend) until you add this to `app/main.py`
+— **this is almost certainly the first thing to check** if requests fail
+with a network error in the browser console but work fine in Swagger UI:
 
 ```python
 from fastapi.middleware.cors import CORSMiddleware
@@ -32,11 +47,12 @@ Without this, every real request from the frontend will fail silently or
 with a CORS error in the browser console — this is almost always the first
 thing to check if "it worked in Postman/Swagger but not from the app."
 
-## 1. General pattern for each swap
+## 1. The pattern used to connect everything (reference)
 
-Every function in `store.tsx` currently does a local `setState`. The swap is
-always: call `apiFetch`, then update state from the *response* instead of
-computing it locally. Example — `addBook`:
+This is the exact pattern already applied throughout `store.tsx` for books,
+members, and loans — and the same pattern to follow for the two things
+still unconnected (`addCopy`, related books). Every function does:
+call `apiFetch`, then update state from the *response*. Example — `addBook`:
 
 **Before (mock):**
 ```typescript
@@ -106,61 +122,64 @@ parsing/validation and just hands off a clean array, regardless of what
 `bulkAddBooks` does with it.
 
 
-## 2. Endpoint map — what to change per function
+## 2. Endpoint map — status as of this update
 
-| `store.tsx` function | Real endpoint (once implemented) | Notes |
+| `store.tsx` function | Real endpoint | Status |
 |---|---|---|
-| Initial `books` load | `GET /books/` | Currently seeded from `mockBooks`. Fetch this in a `useEffect` on mount instead, or convert `page.tsx` layout usage to fetch server-side. |
-| Initial `members` load | `GET /members/` | Same pattern |
-| Initial `loans` load | `GET /loans/` | Same pattern — **not registered in `main.py` yet**, see below |
-| `addBook` | `POST /books/` | **Already works today** — this is the one real endpoint |
-| `bulkAddBooks` | `POST /books/bulk` | Backend stub — the endpoint is already scaffolded in `books.py` per the routers doc, just needs the loop-and-insert logic filled in |
-| `updateBook` | `PUT /books/{book_id}` | Backend stub |
-| `deleteBook` | `DELETE /books/{book_id}` | Backend stub |
-| `bulkDeleteBooks` | `DELETE /books/bulk` | Backend stub — send `{ ids: bookIds }` or similar in the request body, confirm shape with the backend team |
-| `addMember` | `POST /members/` | Backend stub |
-| `updateMember` | `PUT /members/{member_id}` | Backend stub |
-| `deleteMember` | `DELETE /members/{member_id}` | Backend stub |
-| `updateMemberStatus` | `PUT /members/{member_id}/status` | Backend stub |
-| `addCopy` | No dedicated endpoint yet | Likely needs a new `POST /books/{book_id}/copies` route, or extend `PUT /books/{book_id}` to accept a copies list |
-| `checkoutCopy` | `POST /loans/` | Backend stub, and `loans.router` isn't registered in `main.py` — uncomment that line first |
-| `returnLoan` | `PATCH /loans/{loan_id}/return` | Same as above |
+| Initial `books`/`members`/`loans` load | `GET /books/`, `GET /members/`, `GET /loans/` | ✅ Connected — fetched together in `fetchAll()` on login |
+| `addBook` | `POST /books/` | ✅ Connected |
+| `bulkAddBooks` | `POST /books/bulk` | ✅ Connected |
+| `updateBook` | `PUT /books/{book_id}` | ✅ Connected |
+| `deleteBook` | `DELETE /books/{book_id}` | ✅ Connected |
+| `bulkDeleteBooks` | `DELETE /books/bulk` | ✅ Connected — **body shape assumed** as `{ ids: [...] }`; if the backend expects something else, update the one `body: JSON.stringify(...)` line in `bulkDeleteBooks` |
+| `addMember` | `POST /members/` | ✅ Connected |
+| `updateMember` | `PUT /members/{member_id}` | ✅ Connected |
+| `deleteMember` | `DELETE /members/{member_id}` | ✅ Connected |
+| `updateMemberStatus` | `PUT /members/{member_id}/status` | ✅ Connected — **body shape assumed** as `{ membership_status: status }` |
+| `checkoutCopy` | `POST /loans/` | ✅ Connected — only sends `book_id` + `member_id`, see the copy_id note below |
+| `returnLoan` | `PATCH /loans/{loan_id}/return` | ✅ Connected |
+| AI chat (`ChatWindow.tsx`) | `POST /ai/chat` | ✅ Connected — **body/response shape assumed**, see note below |
+| `addCopy` | No dedicated endpoint yet | ❌ Still local-only. Likely needs `POST /books/{book_id}/copies`, or extend `PUT /books/{book_id}` to accept a copies list |
+| Related books | No dedicated endpoint yet | ❌ Still reads `mockBookRelations` |
 
-## 3. The `copy_id` gap on `Loan`
+### Fields marked "assumed" — verify against Swagger
 
-The real backend's `Loan` table only stores `book_id`, not which specific
-`BookCopy` was borrowed. This mock frontend added a `copy_id` field to make
-checkout/return work per physical copy — that field **does not exist in the
-real API response**.
+A few request/response shapes above were written based on the last
+confirmed schema, not a live look at the current backend. **Before
+trusting these in production**, open each endpoint in Swagger UI
+(`/docs` on your backend), expand it, and check the "Request body" /
+"Responses" schema against what the frontend sends:
+- `DELETE /books/bulk` — confirm the request body shape in `bulkDeleteBooks` (`src/lib/store.tsx`)
+- `PUT /members/{member_id}/status` — confirm the body shape in `updateMemberStatus`
+- `POST /ai/chat` — confirm both the request field name and response field name in `ChatWindow.tsx` (currently assumed as `{ message }` in, `{ response }` out)
 
-Two ways to resolve this when the backend is ready, in order of preference:
+If any of these don't match, the fix is a one-line change to the relevant
+`JSON.stringify({...})` call or response field access — the surrounding
+logic doesn't need to change.
 
-1. **Best:** ask the backend team to add `bookcopy_id` to the `loan` table
-   (this is already flagged in `04-roadmap.md` from the docs set). Then
-   `checkoutCopy`/`returnLoan` map cleanly to `POST /loans/` and
-   `PATCH /loans/{id}/return` with a `bookcopy_id` in the body, and the
-   `copy_id` field in `types/index.ts` becomes a real field instead of a
-   mock-only one.
-2. **Workaround if the schema can't change soon:** on checkout, call
-   `POST /loans/` with just `book_id` + `member_id` (matching today's real
-   schema), then separately call an endpoint to mark *some* available copy
-   of that book as unavailable — but there's no way to guarantee which copy
-   was "the one" on return without extra bookkeeping. This is workable for a
-   demo but not a long-term fix.
+## 3. The `copy_id` gap on `Loan` — still open
 
-## 4. Suggested order
+The real backend's `Loan` table is still assumed to only store `book_id`,
+not which specific `BookCopy` was borrowed (this wasn't visible in the
+latest API screenshots, so it may or may not have changed). The frontend
+still lets you pick a specific copy for a good UI experience, and updates
+that copy's availability **locally**, but only sends `book_id` + `member_id`
+to `POST /loans/` — the copy-level detail isn't confirmed by the backend.
 
-Matches the priority list already in `04-roadmap.md`:
+**If the backend has since added a `bookcopy_id` field to `Loan`**, search
+`store.tsx` for `ADJUST IF bookcopy_id EXISTS` and add it to the request
+body in `checkoutCopy` — then copy tracking becomes fully server-confirmed
+instead of a client-side approximation.
 
-1. Wire `addBook` today — the endpoint already works.
-2. Once `GET /books/`, `GET /books/{id}`, `PUT`, `DELETE` are implemented,
-   swap the books side of `store.tsx` fully.
-3. Once `members.py` is implemented, swap `addMember` / `updateMemberStatus`
-   and the initial members load.
-4. Once `loans.router` is registered and implemented (and the `copy_id`
-   question above is resolved), swap `checkoutCopy` / `returnLoan`.
-5. `ai-assistant` stays a placeholder until Phase 3 (the Pydantic AI agent)
-   is built — then point `ChatWindow.tsx`'s `handleSend` at `POST /ai/chat`.
+## 4. What's left
+
+1. Confirm the "assumed" request/response shapes above against Swagger.
+2. Add a real endpoint for `addCopy` (adding a copy to an existing book).
+3. Add a real endpoint for related books, or drop that feature.
+4. Resolve the `copy_id` gap (see above) if precise per-copy tracking matters.
+5. The big one: add auth + a `library` table + `library_id` scoping so
+   multiple libraries can actually use this without seeing each other's
+   data — see the next section.
 
 ## 6. Multi-tenancy & authentication (new)
 

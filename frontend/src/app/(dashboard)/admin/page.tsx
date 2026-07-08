@@ -8,9 +8,9 @@ import StatCard from "@/components/admin/StatCard";
 export default function AdminDashboardPage() {
   const { books, members, loans } = useLibrary();
 
-  const totalCopies = books.reduce((sum, b) => sum + b.copies.length, 0);
+  const totalCopies = books.reduce((sum, b) => sum + (b.copies ?? []).length, 0);
   const availableCopies = books.reduce(
-    (sum, b) => sum + b.copies.filter((c) => c.is_available).length,
+    (sum, b) => sum + (b.copies ?? []).filter((c) => c.is_available).length,
     0
   );
   const activeLoans = loans.filter((l) => !l.return_date).length;

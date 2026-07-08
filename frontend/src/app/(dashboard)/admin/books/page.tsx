@@ -27,17 +27,25 @@ export default function AdminBooksPage() {
     setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   }
 
-  function handleBulkDelete() {
+  async function handleBulkDelete() {
     if (selected.length === 0) return;
     if (!confirm(`Delete ${selected.length} selected book(s)? This cannot be undone.`)) return;
-    bulkDeleteBooks(selected);
-    setSelected([]);
+    try {
+      await bulkDeleteBooks(selected);
+      setSelected([]);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Could not delete the selected books.");
+    }
   }
 
-  function handleDelete(bookId: number) {
+  async function handleDelete(bookId: number) {
     if (!confirm("Delete this book and all its copies?")) return;
-    deleteBook(bookId);
-    setSelected((prev) => prev.filter((x) => x !== bookId));
+    try {
+      await deleteBook(bookId);
+      setSelected((prev) => prev.filter((x) => x !== bookId));
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Could not delete this book.");
+    }
   }
 
   return (
@@ -156,7 +164,7 @@ export default function AdminBooksPage() {
                 <td className="px-4 py-3 text-gray-500">{book.author}</td>
                 <td className="px-4 py-3 text-gray-500">{book.isbn}</td>
                 <td className="px-4 py-3 text-gray-500">
-                  {book.copies.filter((c) => c.is_available).length}/{book.copies.length}
+                  {(book.copies ?? []).filter((c) => c.is_available).length}/{(book.copies ?? []).length}
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex justify-end gap-3">
