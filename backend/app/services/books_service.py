@@ -140,7 +140,7 @@ async def get_books(
     tags: Optional[List[str]] = None,
     limit: int = 50,
     offset: int = 0,
-):
+) -> List[BookListItem]:
     """Return lightweight list items for search/list views."""
     query = select(Book)
     if title:
@@ -157,6 +157,17 @@ async def get_books(
     query = query.limit(limit).offset(offset)
     result = await session.exec(query)
     books = result.all()
+
+    book_ids = [b.id for b in books if b.id is not None]
+    available_book_ids = set()
+    if book_ids:
+        copies_query = select(BookCopy.book_id).where(
+            BookCopy.book_id.in_(book_ids),
+            BookCopy.is_available == True
+        )
+        copies_result = await session.exec(copies_query)
+        available_book_ids = set(copies_result.all())
+
     items: List[BookListItem] = []
     for b in books:
         items.append(
@@ -167,6 +178,7 @@ async def get_books(
                 isbn=b.isbn,
                 summary=b.summary,
                 tags=b.tags,
+                available=b.id in available_book_ids,
             )
         )
 
