@@ -1,9 +1,8 @@
 "use client";
 
-import RequireAuth from "@/components/auth/RequireAuth";
 import { useLibrary } from "@/lib/store";
 
-function AdminLoansPageContent() {
+export default function AdminLoansPage() {
   const { books, members, loans, returnLoan } = useLibrary();
 
   function bookTitle(bookId: number) {
@@ -19,11 +18,11 @@ function AdminLoansPageContent() {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-xl font-semibold text-gray-900">Manage loans</h1>
+      <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Manage loans</h1>
 
-      <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
+      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
         <table className="w-full text-left text-sm">
-          <thead className="bg-gray-50 text-gray-500">
+          <thead className="bg-gray-50/80 text-xs font-medium uppercase tracking-wide text-gray-500">
             <tr>
               <th className="px-4 py-3 font-medium">Book</th>
               <th className="px-4 py-3 font-medium">Member</th>
@@ -34,7 +33,7 @@ function AdminLoansPageContent() {
           </thead>
           <tbody>
             {sorted.map((loan) => (
-              <tr key={loan.id} className="border-t border-gray-100">
+              <tr key={loan.id} className="border-t border-gray-100 hover:bg-gray-50/60">
                 <td className="px-4 py-3 text-gray-800">{bookTitle(loan.book_id)}</td>
                 <td className="px-4 py-3 text-gray-500">{memberName(loan.member_id)}</td>
                 <td className="px-4 py-3 text-gray-500">{loan.load_date}</td>
@@ -63,13 +62,5 @@ function AdminLoansPageContent() {
         </table>
       </div>
     </div>
-  );
-}
-
-export default function AdminLoansPage() {
-  return (
-    <RequireAuth>
-      <AdminLoansPageContent />
-    </RequireAuth>
   );
 }

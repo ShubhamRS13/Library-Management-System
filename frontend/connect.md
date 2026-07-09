@@ -72,6 +72,40 @@ pages don't need to change (they already just call `addBook(form)` without
 awaiting), though awaiting it in the form's `handleSubmit` would let you
 show a loading state if desired.
 
+## 1a. Bulk CSV upload specifics
+
+`BulkUploadCsv.tsx` parses the CSV entirely in the browser (via `papaparse`)
+and only calls `bulkAddBooks()` with the validated rows — the backend never
+sees a raw file, just a JSON array. Once `POST /books/bulk` is implemented,
+`bulkAddBooks` in `store.tsx` should send that same array as the request
+body:
+
+```typescript
+async function bulkAddBooks(inputs: NewBookInput[]) {
+  const created = await apiFetch<Book[]>("/books/bulk", {
+    method: "POST",
+    body: JSON.stringify(
+      inputs.map((i) => ({
+        title: i.title,
+        author: i.author,
+        isbn: i.isbn,
+        summary: i.summary || null,
+        tags: i.tags || null,
+        copies: Array.from({ length: i.initialCopies }, () => ({
+          is_available: true,
+          condition: "good",
+        })),
+      }))
+    ),
+  });
+  setBooks((prev) => [...prev, ...created]);
+}
+```
+No changes needed to `BulkUploadCsv.tsx` itself — it already does client-side
+parsing/validation and just hands off a clean array, regardless of what
+`bulkAddBooks` does with it.
+
+
 ## 2. Endpoint map — what to change per function
 
 | `store.tsx` function | Real endpoint (once implemented) | Notes |
@@ -80,12 +114,17 @@ show a loading state if desired.
 | Initial `members` load | `GET /members/` | Same pattern |
 | Initial `loans` load | `GET /loans/` | Same pattern — **not registered in `main.py` yet**, see below |
 | `addBook` | `POST /books/` | **Already works today** — this is the one real endpoint |
-| `deleteBook` | `DELETE /books/{book_id}` | Backend stub — implement there first |
+| `bulkAddBooks` | `POST /books/bulk` | Backend stub — the endpoint is already scaffolded in `books.py` per the routers doc, just needs the loop-and-insert logic filled in |
+| `updateBook` | `PUT /books/{book_id}` | Backend stub |
+| `deleteBook` | `DELETE /books/{book_id}` | Backend stub |
+| `bulkDeleteBooks` | `DELETE /books/bulk` | Backend stub — send `{ ids: bookIds }` or similar in the request body, confirm shape with the backend team |
+| `addMember` | `POST /members/` | Backend stub |
+| `updateMember` | `PUT /members/{member_id}` | Backend stub |
+| `deleteMember` | `DELETE /members/{member_id}` | Backend stub |
+| `updateMemberStatus` | `PUT /members/{member_id}/status` | Backend stub |
 | `addCopy` | No dedicated endpoint yet | Likely needs a new `POST /books/{book_id}/copies` route, or extend `PUT /books/{book_id}` to accept a copies list |
 | `checkoutCopy` | `POST /loans/` | Backend stub, and `loans.router` isn't registered in `main.py` — uncomment that line first |
 | `returnLoan` | `PATCH /loans/{loan_id}/return` | Same as above |
-| `addMember` | `POST /members/` | Backend stub |
-| `updateMemberStatus` | `PUT /members/{member_id}/status` | Backend stub |
 
 ## 3. The `copy_id` gap on `Loan`
 

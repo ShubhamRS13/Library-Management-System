@@ -20,7 +20,7 @@ import { useAuth } from "@/lib/auth";
 // auth + a library_id foreign key exist there — see connect.md.
 // ---------------------------------------------------------------------------
 
-interface NewBookInput {
+export interface NewBookInput {
   title: string;
   author: string;
   isbn: string;
@@ -29,7 +29,7 @@ interface NewBookInput {
   initialCopies: number;
 }
 
-interface NewMemberInput {
+export interface NewMemberInput {
   first_name: string;
   last_name: string;
   email: string;
@@ -42,11 +42,16 @@ interface LibraryContextValue {
   members: Member[];
   loans: Loan[];
   addBook: (input: NewBookInput) => void;
+  bulkAddBooks: (inputs: NewBookInput[]) => void;
+  updateBook: (bookId: number, input: Omit<NewBookInput, "initialCopies">) => void;
   deleteBook: (bookId: number) => void;
+  bulkDeleteBooks: (bookIds: number[]) => void;
   addCopy: (bookId: number, condition: string) => void;
   checkoutCopy: (bookId: number, copyId: number, memberId: number) => void;
   returnLoan: (loanId: number) => void;
   addMember: (input: NewMemberInput) => void;
+  updateMember: (memberId: number, input: NewMemberInput) => void;
+  deleteMember: (memberId: number) => void;
   updateMemberStatus: (memberId: number, status: Member["membership_status"]) => void;
 }
 
@@ -88,8 +93,58 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     ]);
   }
 
+  function bulkAddBooks(inputs: NewBookInput[]) {
+    setAllBooks((prev) => {
+      let nextBookId = Math.max(0, ...prev.map((b) => b.id)) + 1;
+      let nextCopyId = Math.max(0, ...prev.flatMap((b) => b.copies.map((c) => c.id))) + 1;
+      const newBooks: Book[] = inputs.map((input) => {
+        const copies = Array.from({ length: Math.max(1, input.initialCopies) }, () => ({
+          id: nextCopyId++,
+          book_id: nextBookId,
+          is_available: true,
+          condition: "good",
+        }));
+        const book: Book = {
+          id: nextBookId,
+          title: input.title,
+          author: input.author,
+          isbn: input.isbn,
+          summary: input.summary || null,
+          tags: input.tags || null,
+          library_id: libraryId,
+          copies,
+        };
+        nextBookId++;
+        return book;
+      });
+      return [...prev, ...newBooks];
+    });
+  }
+
+  function updateBook(bookId: number, input: Omit<NewBookInput, "initialCopies">) {
+    setAllBooks((prev) =>
+      prev.map((b) =>
+        b.id === bookId
+          ? {
+              ...b,
+              title: input.title,
+              author: input.author,
+              isbn: input.isbn,
+              summary: input.summary || null,
+              tags: input.tags || null,
+            }
+          : b
+      )
+    );
+  }
+
   function deleteBook(bookId: number) {
     setAllBooks((prev) => prev.filter((b) => b.id !== bookId));
+  }
+
+  function bulkDeleteBooks(bookIds: number[]) {
+    const idSet = new Set(bookIds);
+    setAllBooks((prev) => prev.filter((b) => !idSet.has(b.id)));
   }
 
   function addCopy(bookId: number, condition: string) {
@@ -196,6 +251,27 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     ]);
   }
 
+  function updateMember(memberId: number, input: NewMemberInput) {
+    setAllMembers((prev) =>
+      prev.map((m) =>
+        m.id === memberId
+          ? {
+              ...m,
+              first_name: input.first_name,
+              last_name: input.last_name,
+              email: input.email,
+              phone_number: input.phone_number,
+              address: input.address || null,
+            }
+          : m
+      )
+    );
+  }
+
+  function deleteMember(memberId: number) {
+    setAllMembers((prev) => prev.filter((m) => m.id !== memberId));
+  }
+
   function updateMemberStatus(memberId: number, status: Member["membership_status"]) {
     setAllMembers((prev) =>
       prev.map((m) => (m.id === memberId ? { ...m, membership_status: status } : m))
@@ -209,11 +285,16 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
         members,
         loans,
         addBook,
+        bulkAddBooks,
+        updateBook,
         deleteBook,
+        bulkDeleteBooks,
         addCopy,
         checkoutCopy,
         returnLoan,
         addMember,
+        updateMember,
+        deleteMember,
         updateMemberStatus,
       }}
     >

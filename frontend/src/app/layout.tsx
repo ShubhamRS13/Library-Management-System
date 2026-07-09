@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
+import { Inter } from "next/font/google";
 import "./globals.css";
-import Navbar from "@/components/layout/Navbar";
-import Footer from "@/components/layout/Footer";
 import { AuthProvider } from "@/lib/auth";
 import { LibraryProvider } from "@/lib/store";
+
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 export const metadata: Metadata = {
   title: "Library Management System",
@@ -16,14 +17,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className="flex min-h-screen flex-col">
+    <html lang="en" className={inter.variable}>
+      <body className="font-sans antialiased">
         <AuthProvider>
-          <LibraryProvider>
-            <Navbar />
-            <main className="mx-auto w-full max-w-5xl flex-1 px-6 py-8">{children}</main>
-            <Footer />
-          </LibraryProvider>
+          <LibraryProvider>{children}</LibraryProvider>
         </AuthProvider>
       </body>
     </html>

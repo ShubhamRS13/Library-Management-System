@@ -3,9 +3,8 @@
 import { useState } from "react";
 import { useLibrary } from "@/lib/store";
 import BookList from "@/components/books/BookList";
-import RequireAuth from "@/components/auth/RequireAuth";
 
-function BooksPageContent() {
+export default function BooksPage() {
   const { books } = useLibrary();
   const [query, setQuery] = useState("");
 
@@ -21,7 +20,7 @@ function BooksPageContent() {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-xl font-semibold text-gray-900">Catalog</h1>
+        <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Catalog</h1>
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -31,13 +30,5 @@ function BooksPageContent() {
       </div>
       <BookList books={filtered} />
     </div>
-  );
-}
-
-export default function BooksPage() {
-  return (
-    <RequireAuth>
-      <BooksPageContent />
-    </RequireAuth>
   );
 }

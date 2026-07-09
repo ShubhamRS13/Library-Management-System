@@ -5,9 +5,8 @@ import { notFound } from "next/navigation";
 import { useLibrary } from "@/lib/store";
 import { mockBookRelations } from "@/lib/mockData";
 import StatusBadge from "@/components/books/StatusBadge";
-import RequireAuth from "@/components/auth/RequireAuth";
 
-function BookDetailContent({ bookId }: { bookId: number }) {
+export default function BookDetailClient({ bookId }: { bookId: number }) {
   const { books, members, loans, checkoutCopy, returnLoan, addCopy } = useLibrary();
   const [selectedMember, setSelectedMember] = useState<Record<number, string>>({});
   const [newCondition, setNewCondition] = useState("good");
@@ -31,8 +30,8 @@ function BookDetailContent({ bookId }: { bookId: number }) {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="rounded-lg border border-gray-200 bg-white p-8">
-        <h1 className="text-xl font-semibold text-gray-900">{book.title}</h1>
+      <div className="rounded-xl border border-gray-200 bg-white shadow-sm p-8">
+        <h1 className="text-2xl font-semibold tracking-tight text-gray-900">{book.title}</h1>
         <p className="mt-1 text-sm text-gray-500">{book.author}</p>
         {book.summary && <p className="mt-4 text-sm text-gray-700">{book.summary}</p>}
         <dl className="mt-6 grid grid-cols-2 gap-4 text-sm sm:grid-cols-3">
@@ -53,7 +52,7 @@ function BookDetailContent({ bookId }: { bookId: number }) {
         </dl>
       </div>
 
-      <div className="rounded-lg border border-gray-200 bg-white p-6">
+      <div className="rounded-xl border border-gray-200 bg-white shadow-sm p-6">
         <h2 className="text-sm font-semibold text-gray-900">Physical copies</h2>
         <table className="mt-4 w-full text-left text-sm">
           <thead className="text-gray-500">
@@ -68,7 +67,7 @@ function BookDetailContent({ bookId }: { bookId: number }) {
             {book.copies.map((copy) => {
               const activeLoan = loanForCopy(copy.id);
               return (
-                <tr key={copy.id} className="border-t border-gray-100">
+                <tr key={copy.id} className="border-t border-gray-100 hover:bg-gray-50/60">
                   <td className="py-2 text-gray-800">#{copy.id}</td>
                   <td className="py-2 text-gray-500 capitalize">{copy.condition}</td>
                   <td className="py-2">
@@ -143,7 +142,7 @@ function BookDetailContent({ bookId }: { bookId: number }) {
       </div>
 
       {relatedBooks.length > 0 && (
-        <div className="rounded-lg border border-gray-200 bg-white p-6">
+        <div className="rounded-xl border border-gray-200 bg-white shadow-sm p-6">
           <h2 className="text-sm font-semibold text-gray-900">Related books</h2>
           <ul className="mt-3 flex flex-wrap gap-2">
             {relatedBooks.map((rb) => (
@@ -160,13 +159,5 @@ function BookDetailContent({ bookId }: { bookId: number }) {
         </div>
       )}
     </div>
-  );
-}
-
-export default function BookDetailClient({ bookId }: { bookId: number }) {
-  return (
-    <RequireAuth>
-      <BookDetailContent bookId={bookId} />
-    </RequireAuth>
   );
 }
