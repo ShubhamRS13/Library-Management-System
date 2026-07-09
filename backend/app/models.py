@@ -1,9 +1,11 @@
+from pydantic import BaseModel
 from datetime import datetime
 from typing import List, Optional
 
 from sqlalchemy import Column, Integer, Boolean, DateTime
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlmodel import Field, Relationship, SQLModel
+from pydantic import BaseModel
 # from sqlalchemy.orm import Mapped
 class BookCopy(SQLModel, table=True):
     __tablename__ = "bookcopy"
@@ -201,4 +203,24 @@ class LoanDetailResponse(SQLModel):
     load_date: datetime
     return_date: Optional[datetime] = None
 
+class BookCard(BaseModel):
+    book_id: int
+    title: str
+    author: str
+    is_available: bool
+
+class LibraryResponse(BaseModel):
+    message: str  # The conversational text (GranthPal speaking)
+    recommended_books: Optional[List[BookCard]] # The data to render as UI Cards
+
+class ChatMessage(SQLModel, table=True):
+    __tablename__ = "chatmessage"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    session_id: str = Field(index=True)
+    message_data: str = Field(default="[]")
+    created_at: datetime = Field(
+        default_factory=datetime.utcnow,
+        sa_column=Column(DateTime(timezone=True), default=datetime.utcnow)
+    )
 
