@@ -1,6 +1,7 @@
+from sqlalchemy import desc
 from datetime import datetime, timezone, timedelta
-from typing import List, Optional
-
+from typing import List, Optional, Dict
+from app.core.config import library_settings
 from fastapi import HTTPException, status
 from sqlmodel import select, or_
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -35,6 +36,13 @@ async def create_loan(loan_data: LoanCreate, session: AsyncSession) -> LoanDetai
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Cannot checkout book: Member status is '{member.membership_status}' (must be active)",
+        )
+
+    current_loans = await session.exec(select(func.count(Loan.id)).where(Loan.member == loan_data.member_id))
+    if current_loans >= library_settings.max_books_per_member:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="Loan limit reached. Cannot checkout more books"
         )
 
     # 2. Fetch Book to check if it exists
@@ -293,3 +301,35 @@ async def get_active_loans(
             )
         )
     return response_list
+
+
+async def get_past_books_with_tags(member_id: int, session: AsyncSession) -> Dict[str, Any]:
+    # 1. Fetch both title and tags
+    query = (
+        select(Book.title, Book.tags)
+        .join(Loan, Loan.book_id == Book.id)
+        .where(Loan.member_id == member_id, Loan.return_date.is_not(None))
+        .order_by(desc(Loan.return_date))
+        .limit(10)
+    )
+    
+    result = await session.exec(query)
+    # This returns a list of tuples: [("Title", "tag1,tag2"), ...]
+    books_data = result.all()
+    
+    # 2. Extract titles
+    titles = [row[0] for row in books_data]
+    
+    # 3. Process tags into a unique set
+    unique_tags = set()
+    for row in books_data:
+        raw_tags = row[1]  # The comma-separated string
+        if raw_tags:
+            tags_list = [tag.strip() for tag in raw_tags.split(',')]   
+            unique_tags.update(tags_list)
+            
+    return {
+        "books_title": titles,
+        "tags": list(unique_tags)
+    }
+    
