@@ -30,7 +30,8 @@ async def create_book(book_request: BookCreateRequest, session: AsyncSession = D
         summary=book_request.summary,
         tags=book_request.tags,
     )
-    return await books_service.create_book(book, session, copy_count=book_request.copy_count)
+    return await books_service.create_book(book, session, copy_count=book_request.copy_count, related_books=book_request.related_books)
+
 
 @router.post("/bulk", response_model=BulkBookUploadResponse)
 async def create_books(

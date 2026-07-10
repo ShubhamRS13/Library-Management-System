@@ -18,17 +18,11 @@ class BookCopy(SQLModel, table=True):
     book: Optional["Book"] = Relationship(back_populates="copies")  # Keep this as-is
 
 
-class BookRelation(SQLModel, table=True):
-    __tablename__ = "bookrelation"
+class RelatedBook(SQLModel, table=True):
+    __tablename__ = "relatedbook"
 
-    id: Optional[int] = Field(default=None, primary_key=True)
-    book_id: Optional[int] = Field(default=None, foreign_key="book.id")
-    related_book_ids: Optional[list[int]] = Field(
-        default=None,
-        sa_column=Column(ARRAY(Integer)),
-    )
-
-    book: Optional["Book"] = Relationship(back_populates="relations")  # Keep this as-is
+    book_a_id: int = Field(foreign_key="book.id", primary_key=True, ondelete="CASCADE")
+    book_b_id: int = Field(foreign_key="book.id", primary_key=True, ondelete="CASCADE")
 
 
 class Loan(SQLModel, table=True):
@@ -71,7 +65,6 @@ class Book(SQLModel, table=True):
 
     copies: List["BookCopy"] = Relationship(back_populates="book")
     loans: List["Loan"] = Relationship(back_populates="book")
-    relations: List["BookRelation"] = Relationship(back_populates="book")
 
 
 class BookListItem(SQLModel):
@@ -124,6 +117,7 @@ class BookDetailResponse(SQLModel):
     copies: List[CopyInfo] = []
     current_holders: List[HolderInfo] = []
     loan_history: List[LoanInfo] = []
+    related_books: List[dict] = []
 
 class BookUpdate(SQLModel):
     title: Optional[str] = None
@@ -132,6 +126,7 @@ class BookUpdate(SQLModel):
     summary: Optional[str] = None
     tags: Optional[str] = None
     add_copies: Optional[int] = 0
+    related_books: Optional[List[int]] = None
 
 
 class BookCreateRequest(SQLModel):
@@ -141,6 +136,7 @@ class BookCreateRequest(SQLModel):
     summary: Optional[str] = None
     tags: Optional[str] = None
     copy_count: int = 1
+    related_books: Optional[List[int]] = None
 
 
 class BulkBookUploadResponse(SQLModel):
