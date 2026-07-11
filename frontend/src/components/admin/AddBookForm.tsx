@@ -15,13 +15,23 @@ const emptyForm: NewBookInput = {
 export default function AddBookForm({ onDone }: { onDone?: () => void }) {
   const { addBook } = useLibrary();
   const [form, setForm] = useState<NewBookInput>(emptyForm);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.title || !form.author || !form.isbn) return;
-    addBook(form);
-    setForm(emptyForm);
-    onDone?.();
+    setSubmitting(true);
+    setError("");
+    try {
+      await addBook(form);
+      setForm(emptyForm);
+      onDone?.();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not save the book.");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -73,11 +83,13 @@ export default function AddBookForm({ onDone }: { onDone?: () => void }) {
           className="w-20 rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-brand-500 focus:outline-none"
         />
       </label>
+      {error && <p className="col-span-full text-sm text-red-600">{error}</p>}
       <button
         type="submit"
-        className="col-span-full rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
+        disabled={submitting}
+        className="col-span-full rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-gray-300"
       >
-        Save book
+        {submitting ? "Saving..." : "Save book"}
       </button>
     </form>
   );

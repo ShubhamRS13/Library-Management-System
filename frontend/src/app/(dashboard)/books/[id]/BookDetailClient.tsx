@@ -1,17 +1,32 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { notFound } from "next/navigation";
 import { useLibrary } from "@/lib/store";
+// Related books has no backend endpoint yet — this stays mock-only.
 import { mockBookRelations } from "@/lib/mockData";
 import StatusBadge from "@/components/books/StatusBadge";
 
 export default function BookDetailClient({ bookId }: { bookId: number }) {
-  const { books, members, loans, checkoutCopy, returnLoan, addCopy } = useLibrary();
+  const { books, members, loans, checkoutCopy, returnLoan, addCopy, refreshBook } = useLibrary();
   const [selectedMember, setSelectedMember] = useState<Record<number, string>>({});
   const [newCondition, setNewCondition] = useState("good");
+  const [checkedDetail, setCheckedDetail] = useState(false);
+
+  // The list endpoint (GET /books/) may not include nested copies — fetch
+  // this book's full detail on mount so the copies table always has data.
+  // `checkedDetail` prevents a false "not found" while this is in flight.
+  useEffect(() => {
+    setCheckedDetail(false);
+    refreshBook(bookId).finally(() => setCheckedDetail(true));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bookId]);
 
   const book = books.find((b) => b.id === bookId);
+
+  if (!checkedDetail) {
+    return <p className="text-sm text-gray-400">Loading book...</p>;
+  }
   if (!book) notFound();
 
   const relation = mockBookRelations.find((r) => r.book_id === bookId);
@@ -26,6 +41,23 @@ export default function BookDetailClient({ bookId }: { bookId: number }) {
   function memberName(memberId: number) {
     const m = members.find((mm) => mm.id === memberId);
     return m ? `${m.first_name} ${m.last_name}` : "Unknown member";
+  }
+
+  async function handleCheckout(copyId: number) {
+    const memberId = Number(selectedMember[copyId]);
+    try {
+      await checkoutCopy(book!.id, copyId, memberId);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Could not check out this copy.");
+    }
+  }
+
+  async function handleReturn(loanId: number) {
+    try {
+      await returnLoan(loanId);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Could not process the return.");
+    }
   }
 
   return (
@@ -46,7 +78,7 @@ export default function BookDetailClient({ bookId }: { bookId: number }) {
           <div>
             <dt className="text-gray-400">Copies available</dt>
             <dd className="text-gray-800">
-              {book.copies.filter((c) => c.is_available).length} / {book.copies.length}
+              {(book.copies ?? []).filter((c) => c.is_available).length} / {(book.copies ?? []).length}
             </dd>
           </div>
         </dl>
@@ -64,7 +96,7 @@ export default function BookDetailClient({ bookId }: { bookId: number }) {
             </tr>
           </thead>
           <tbody>
-            {book.copies.map((copy) => {
+            {(book.copies ?? []).map((copy) => {
               const activeLoan = loanForCopy(copy.id);
               return (
                 <tr key={copy.id} className="border-t border-gray-100 hover:bg-gray-50/60">
@@ -92,9 +124,7 @@ export default function BookDetailClient({ bookId }: { bookId: number }) {
                         </select>
                         <button
                           disabled={!selectedMember[copy.id]}
-                          onClick={() =>
-                            checkoutCopy(book.id, copy.id, Number(selectedMember[copy.id]))
-                          }
+                          onClick={() => handleCheckout(copy.id)}
                           className="rounded-md bg-brand-600 px-3 py-1 text-xs font-medium text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-gray-300"
                         >
                           Check out
@@ -106,7 +136,7 @@ export default function BookDetailClient({ bookId }: { bookId: number }) {
                           with {memberName(activeLoan.member_id)} since {activeLoan.load_date}
                         </span>
                         <button
-                          onClick={() => returnLoan(activeLoan.id)}
+                          onClick={() => handleReturn(activeLoan.id)}
                           className="rounded-md border border-gray-300 px-3 py-1 font-medium text-gray-700 hover:bg-gray-50"
                         >
                           Return

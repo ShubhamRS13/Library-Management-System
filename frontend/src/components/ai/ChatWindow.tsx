@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { apiFetch } from "@/lib/api";
 
 interface ChatMessage {
   id: string;
@@ -8,36 +9,61 @@ interface ChatMessage {
   content: string;
 }
 
+// ADJUST IF NEEDED: the exact request/response field names below are a
+// best guess (`message` in, `response` out). Expand POST /ai/chat in
+// Swagger UI and check the "Request body" / "Responses" schema — if the
+// field names differ, update AiChatRequest / AiChatResponse to match.
+interface AiChatRequest {
+  message: string;
+}
+
+interface AiChatResponse {
+  response: string;
+}
+
 export default function ChatWindow() {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: "welcome",
       role: "assistant",
-      content:
-        'Ask me for a book recommendation, e.g. "suggest a mystery novel". (Phase 3 — not yet connected to the backend, so this reply is a placeholder.)',
+      content: 'Ask me for a book recommendation, e.g. "suggest a mystery novel".',
     },
   ]);
   const [input, setInput] = useState("");
+  const [sending, setSending] = useState(false);
 
-  function handleSend() {
-    if (!input.trim()) return;
+  async function handleSend() {
+    if (!input.trim() || sending) return;
 
     const userMessage: ChatMessage = { id: crypto.randomUUID(), role: "user", content: input };
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
+    setSending(true);
 
-    // TODO (Phase 3): replace with apiFetch("/ai/chat", { method: "POST", body: JSON.stringify({ user_query: input }) })
-    setTimeout(() => {
+    try {
+      const result = await apiFetch<AiChatResponse>("/ai/chat", {
+        method: "POST",
+        body: JSON.stringify({ message: userMessage.content } satisfies AiChatRequest),
+      });
+      setMessages((prev) => [
+        ...prev,
+        { id: crypto.randomUUID(), role: "assistant", content: result.response },
+      ]);
+    } catch (err) {
       setMessages((prev) => [
         ...prev,
         {
           id: crypto.randomUUID(),
           role: "assistant",
           content:
-            "The AI assistant will answer here once the backend /ai/chat endpoint (Phase 3) is built and connected.",
+            err instanceof Error
+              ? `Sorry, the assistant couldn't respond: ${err.message}`
+              : "Sorry, the assistant couldn't respond right now.",
         },
       ]);
-    }, 400);
+    } finally {
+      setSending(false);
+    }
   }
 
   return (
@@ -53,6 +79,7 @@ export default function ChatWindow() {
             {m.content}
           </div>
         ))}
+        {sending && <div className="text-xs text-gray-400">Thinking...</div>}
       </div>
       <div className="flex gap-2 border-t border-gray-200 p-3">
         <input
@@ -60,13 +87,15 @@ export default function ChatWindow() {
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleSend()}
           placeholder="Ask for a recommendation..."
-          className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+          disabled={sending}
+          className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50"
         />
         <button
           onClick={handleSend}
-          className="rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
+          disabled={sending}
+          className="rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-gray-300"
         >
-          Send
+          {sending ? "..." : "Send"}
         </button>
       </div>
     </div>

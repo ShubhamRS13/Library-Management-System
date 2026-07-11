@@ -48,6 +48,8 @@ export default function BulkUploadCsv({ onDone }: { onDone?: () => void }) {
   const [rows, setRows] = useState<ParsedRow[]>([]);
   const [fileName, setFileName] = useState("");
   const [uploaded, setUploaded] = useState(0);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState("");
 
   function handleFile(file: File) {
     setFileName(file.name);
@@ -74,7 +76,7 @@ export default function BulkUploadCsv({ onDone }: { onDone?: () => void }) {
 
   const validRows = rows.filter((r) => r.valid);
 
-  function handleUpload() {
+  async function handleUpload() {
     const inputs: NewBookInput[] = validRows.map((r) => ({
       title: r.title,
       author: r.author,
@@ -83,11 +85,19 @@ export default function BulkUploadCsv({ onDone }: { onDone?: () => void }) {
       tags: r.tags,
       initialCopies: Math.max(1, parseInt(r.copies, 10) || 1),
     }));
-    bulkAddBooks(inputs);
-    setUploaded(inputs.length);
-    setRows([]);
-    setFileName("");
-    onDone?.();
+    setUploading(true);
+    setError("");
+    try {
+      await bulkAddBooks(inputs);
+      setUploaded(inputs.length);
+      setRows([]);
+      setFileName("");
+      onDone?.();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not upload books.");
+    } finally {
+      setUploading(false);
+    }
   }
 
   return (
@@ -137,12 +147,14 @@ export default function BulkUploadCsv({ onDone }: { onDone?: () => void }) {
             </p>
             <button
               onClick={handleUpload}
-              disabled={validRows.length === 0}
+              disabled={validRows.length === 0 || uploading}
               className="rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-gray-300"
             >
-              Upload {validRows.length} book{validRows.length === 1 ? "" : "s"}
+              {uploading ? "Uploading..." : `Upload ${validRows.length} book${validRows.length === 1 ? "" : "s"}`}
             </button>
           </div>
+
+          {error && <p className="text-sm text-red-600">{error}</p>}
 
           <div className="max-h-64 overflow-auto rounded-lg border border-gray-200">
             <table className="w-full text-left text-xs">

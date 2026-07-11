@@ -16,6 +16,14 @@ export default function AdminLoansPage() {
 
   const sorted = [...loans].sort((a, b) => (a.return_date ? 1 : 0) - (b.return_date ? 1 : 0));
 
+  async function handleReturn(loanId: number) {
+    try {
+      await returnLoan(loanId);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Could not process the return.");
+    }
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Manage loans</h1>
@@ -49,7 +57,7 @@ export default function AdminLoansPage() {
                 <td className="px-4 py-3 text-right">
                   {!loan.return_date && (
                     <button
-                      onClick={() => returnLoan(loan.id)}
+                      onClick={() => handleReturn(loan.id)}
                       className="text-brand-700 hover:underline"
                     >
                       Return

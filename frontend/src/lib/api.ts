@@ -6,7 +6,7 @@ interface ApiOptions extends RequestInit {
 
 /**
  * Thin wrapper around fetch for talking to the FastAPI backend.
- * Once real endpoints exist, calls look like:
+ * Usage:
  *   apiFetch<Book[]>("/books/")
  *   apiFetch<Book>("/books/", { method: "POST", body: JSON.stringify(newBook) })
  * See connect.md for the full endpoint list and how each one maps to
@@ -26,8 +26,18 @@ export async function apiFetch<T>(path: string, options: ApiOptions = {}): Promi
 
   if (!res.ok) {
     const message = await res.text().catch(() => res.statusText);
-    throw new Error(`API error ${res.status}: ${message}`);
+    throw new Error(`API error ${res.status}: ${message || res.statusText}`);
   }
 
-  return res.json() as Promise<T>;
+  // DELETE endpoints (and some others) often return 204 No Content or an
+  // empty body — calling res.json() on an empty body throws, so handle
+  // that case explicitly instead of assuming every response has JSON.
+  if (res.status === 204) {
+    return undefined as T;
+  }
+  const text = await res.text();
+  if (!text) {
+    return undefined as T;
+  }
+  return JSON.parse(text) as T;
 }
