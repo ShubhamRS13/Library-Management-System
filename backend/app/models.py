@@ -1,9 +1,11 @@
+from pydantic import BaseModel
 from datetime import datetime
 from typing import List, Optional
 
 from sqlalchemy import Column, Integer, Boolean, DateTime
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlmodel import Field, Relationship, SQLModel
+from pydantic import BaseModel
 # from sqlalchemy.orm import Mapped
 class BookCopy(SQLModel, table=True):
     __tablename__ = "bookcopy"
@@ -16,17 +18,11 @@ class BookCopy(SQLModel, table=True):
     book: Optional["Book"] = Relationship(back_populates="copies")  # Keep this as-is
 
 
-class BookRelation(SQLModel, table=True):
-    __tablename__ = "bookrelation"
+class RelatedBook(SQLModel, table=True):
+    __tablename__ = "relatedbook"
 
-    id: Optional[int] = Field(default=None, primary_key=True)
-    book_id: Optional[int] = Field(default=None, foreign_key="book.id")
-    related_book_ids: Optional[list[int]] = Field(
-        default=None,
-        sa_column=Column(ARRAY(Integer)),
-    )
-
-    book: Optional["Book"] = Relationship(back_populates="relations")  # Keep this as-is
+    book_a_id: int = Field(foreign_key="book.id", primary_key=True, ondelete="CASCADE")
+    book_b_id: int = Field(foreign_key="book.id", primary_key=True, ondelete="CASCADE")
 
 
 class Loan(SQLModel, table=True):
@@ -69,7 +65,6 @@ class Book(SQLModel, table=True):
 
     copies: List["BookCopy"] = Relationship(back_populates="book")
     loans: List["Loan"] = Relationship(back_populates="book")
-    relations: List["BookRelation"] = Relationship(back_populates="book")
 
 
 class BookListItem(SQLModel):
@@ -80,6 +75,14 @@ class BookListItem(SQLModel):
     summary: Optional[str] = None
     tags: Optional[str] = None
 
+class BookListItem(SQLModel):
+    id: int
+    title: str
+    author: str
+    isbn: str
+    summary: Optional[str] = None
+    tags: Optional[str] = None
+    available: Optional[bool] = True
 
 class CopyInfo(SQLModel):
     id: int
@@ -114,6 +117,7 @@ class BookDetailResponse(SQLModel):
     copies: List[CopyInfo] = []
     current_holders: List[HolderInfo] = []
     loan_history: List[LoanInfo] = []
+    related_books: List[dict] = []
 
 class BookUpdate(SQLModel):
     title: Optional[str] = None
@@ -122,6 +126,7 @@ class BookUpdate(SQLModel):
     summary: Optional[str] = None
     tags: Optional[str] = None
     add_copies: Optional[int] = 0
+    related_books: Optional[List[int]] = None
 
 
 class BookCreateRequest(SQLModel):
@@ -131,6 +136,7 @@ class BookCreateRequest(SQLModel):
     summary: Optional[str] = None
     tags: Optional[str] = None
     copy_count: int = 1
+    related_books: Optional[List[int]] = None
 
 
 class BulkBookUploadResponse(SQLModel):
@@ -176,4 +182,41 @@ class MemberDetailResponse(SQLModel):
     total_loan_count: int
     active_loans: List[MemberLoanInfo] = []
     recent_loans: List[MemberLoanInfo] = []
+
+
+class LoanCreate(SQLModel):
+    book_id: int
+    member_id: int
+
+
+class LoanDetailResponse(SQLModel):
+    id: int
+    book_id: int
+    book_title: str
+    member_id: int
+    member_first_name: str
+    member_last_name: str
+    load_date: datetime
+    return_date: Optional[datetime] = None
+
+class BookCard(BaseModel):
+    book_id: int
+    title: str
+    author: str
+    is_available: bool
+
+class LibraryResponse(BaseModel):
+    message: str  # The conversational text (GranthPal speaking)
+    recommended_books: Optional[List[BookCard]] # The data to render as UI Cards
+
+class ChatMessage(SQLModel, table=True):
+    __tablename__ = "chatmessage"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    session_id: str = Field(index=True)
+    message_data: str = Field(default="[]")
+    created_at: datetime = Field(
+        default_factory=datetime.utcnow,
+        sa_column=Column(DateTime(timezone=True), default=datetime.utcnow)
+    )
 

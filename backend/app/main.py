@@ -2,9 +2,20 @@ from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy import text
 from app.database import engine
 from app.routers import books, members, ai_agent, loans
-
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(title="Library Management System Backend", version="1.0.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 app.include_router(books.router, prefix="/books", tags=["Books"])
 app.include_router(members.router, prefix="/members", tags=["Members"])

@@ -16,10 +16,72 @@ from app.models import (
     HolderInfo,
     BulkBookUploadResponse,
     BookUpdate,
+    RelatedBook,
 )
 
 
-async def create_book(book: Book, session: AsyncSession, copy_count: int = 1):
+async def sync_relations(book_id: int, target_related_ids: list[int], session: AsyncSession):
+    # Ensure target_related_ids does not contain duplicates or the book's own ID
+    target_related_ids = list(set(target_related_ids))
+    if book_id in target_related_ids:
+        target_related_ids.remove(book_id)
+
+    # Validate all target_related_ids exist in DB
+    for r_id in target_related_ids:
+        r_book = await session.get(Book, r_id)
+        if not r_book:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Related book ID {r_id} does not exist."
+            )
+
+    # Delete all existing relations for this book in RelatedBook
+    existing_stmt = select(RelatedBook).where(
+        (RelatedBook.book_a_id == book_id) | (RelatedBook.book_b_id == book_id)
+    )
+    existing_relations = (await session.exec(existing_stmt)).all()
+    for rel in existing_relations:
+        await session.delete(rel)
+
+    # Insert new relations in normalized form (book_a_id < book_b_id)
+    inserted = set()
+    for r_id in target_related_ids:
+        a, b = min(book_id, r_id), max(book_id, r_id)
+        if (a, b) not in inserted:
+            session.add(RelatedBook(book_a_id=a, book_b_id=b))
+            inserted.add((a, b))
+
+
+async def get_related_books(book_id: int, session: AsyncSession):
+    # 1. Fetch relations
+    related_stmt = select(RelatedBook).where(
+        (RelatedBook.book_a_id == book_id) | (RelatedBook.book_b_id == book_id)
+    )
+    relations = (await session.exec(related_stmt)).all()
+    
+    related_ids = []
+    for r in relations:
+        if r.book_a_id == book_id:
+            related_ids.append(r.book_b_id)
+        else:
+            related_ids.append(r.book_a_id)
+
+    # 2. Fetch both ID and Title from the Book table
+    if not related_ids:
+        return []
+
+    # Select both ID and Title
+    titles_stmt = select(Book.id, Book.title).where(Book.id.in_(related_ids))
+    results = (await session.exec(titles_stmt)).all()
+    
+    # 3. Format into the desired array of objects
+    # 'results' will contain tuples of (id, title)
+    related_books = [{"id": book_id, "title": title} for book_id, title in results]
+    
+    return related_books
+
+
+async def create_book(book: Book, session: AsyncSession, copy_count: int = 1, related_books: Optional[List[int]] = None):
     """
     Create a new book title and multiple physical copies.
     """
@@ -63,6 +125,9 @@ async def create_book(book: Book, session: AsyncSession, copy_count: int = 1):
     session.add(book)
     await session.flush()
 
+    if related_books:
+        await sync_relations(book.id, related_books, session)
+
     # Create multiple copies based on copy_count
     for _ in range(copy_count):
         book_copy = BookCopy(book_id=book.id, is_available=True, condition="good")
@@ -86,10 +151,12 @@ async def create_books_bulk(books: list, session: AsyncSession):
         try:
             copy_count = 1
             book = book_data
+            related_books = None
             
             # Handle if book_data is a dict (from JSON request)
             if isinstance(book_data, dict):
                 copy_count = book_data.get("copy_count", 1)
+                related_books = book_data.get("related_books")
                 book = Book(
                     title=book_data.get("title"),
                     author=book_data.get("author"),
@@ -100,6 +167,7 @@ async def create_books_bulk(books: list, session: AsyncSession):
             # Handle if it's already a Book model
             elif hasattr(book_data, "copy_count"):
                 copy_count = book_data.copy_count
+                related_books = getattr(book_data, "related_books", None)
                 book = Book(
                     title=book_data.title,
                     author=book_data.author,
@@ -108,7 +176,7 @@ async def create_books_bulk(books: list, session: AsyncSession):
                     tags=getattr(book_data, "tags", None),
                 )
             
-            created_book = await create_book(book, session, copy_count=copy_count)
+            created_book = await create_book(book, session, copy_count=copy_count, related_books=related_books)
             created_books.append(created_book)
         except HTTPException as exc:
             failed_books.append(
@@ -140,7 +208,7 @@ async def get_books(
     tags: Optional[List[str]] = None,
     limit: int = 50,
     offset: int = 0,
-):
+) -> List[BookListItem]:
     """Return lightweight list items for search/list views."""
     query = select(Book)
     if title:
@@ -157,6 +225,17 @@ async def get_books(
     query = query.limit(limit).offset(offset)
     result = await session.exec(query)
     books = result.all()
+
+    book_ids = [b.id for b in books if b.id is not None]
+    available_book_ids = set()
+    if book_ids:
+        copies_query = select(BookCopy.book_id).where(
+            BookCopy.book_id.in_(book_ids),
+            BookCopy.is_available == True
+        )
+        copies_result = await session.exec(copies_query)
+        available_book_ids = set(copies_result.all())
+
     items: List[BookListItem] = []
     for b in books:
         items.append(
@@ -167,6 +246,7 @@ async def get_books(
                 isbn=b.isbn,
                 summary=b.summary,
                 tags=b.tags,
+                available=b.id in available_book_ids,
             )
         )
 
@@ -227,6 +307,9 @@ async def get_book_detail(book_id: int, session: AsyncSession):
             )
         )
 
+    
+    related_books = await get_related_books(book_id, session)
+
     return BookDetailResponse(
         id=book.id,
         title=book.title,
@@ -238,6 +321,7 @@ async def get_book_detail(book_id: int, session: AsyncSession):
         copies=copies_info,
         current_holders=current_holders,
         loan_history=loan_history,
+        related_books=related_books,
     )
 
 
@@ -255,6 +339,7 @@ async def get_suggestions(session: AsyncSession, q: Optional[str] = None, limit:
         BookListItem(id=b.id, title=b.title, author=b.author, isbn=b.isbn, summary=b.summary, tags=b.tags)
         for b in books
     ]
+
 
 async def update_book(book_id: int, book_update: BookUpdate, session: AsyncSession):
     book = await session.get(Book, book_id)
@@ -285,6 +370,9 @@ async def update_book(book_id: int, book_update: BookUpdate, session: AsyncSessi
     if book_update.tags is not None:
         book.tags = book_update.tags.strip() if book_update.tags else None
 
+    if book_update.related_books is not None:
+        await sync_relations(book_id, book_update.related_books, session)
+
     if book_update.add_copies and book_update.add_copies > 0:
         for _ in range(book_update.add_copies):
             session.add(BookCopy(book_id=book.id, is_available=True, condition="good"))
@@ -292,6 +380,7 @@ async def update_book(book_id: int, book_update: BookUpdate, session: AsyncSessi
     await session.commit()
     await session.refresh(book)
     return book
+
 
 async def delete_book(book_id: int, session: AsyncSession):
     book = await session.get(Book, book_id)
@@ -309,6 +398,7 @@ async def delete_book(book_id: int, session: AsyncSession):
     await session.delete(book)
     await session.commit()
 
+
 async def delete_books_bulk(book_ids: List[int], session: AsyncSession):
     deleted = []
     failed = []
@@ -323,7 +413,6 @@ async def delete_books_bulk(book_ids: List[int], session: AsyncSession):
             failed.append({"book_id": book_id, "error": str(exc)})
 
     return {"deleted": deleted, "failed": failed}
-
 
 
 async def delete_book_copy(book_id: int, copy_id: int, session: AsyncSession):
