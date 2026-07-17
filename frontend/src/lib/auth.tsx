@@ -1,20 +1,34 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import type { LibraryAccount } from "@/types";
+import type { LibraryAccount, PublicLibrarySession } from "@/types";
 import { mockLibraryAccounts } from "@/lib/mockData";
 
 // ---------------------------------------------------------------------------
-// MOCK AUTH LAYER. The real backend has no auth or library/tenant concept
-// yet (see the note at the top of types/index.ts and connect.md). This
-// provider fakes registration/login/session using localStorage so the app
-// is fully clickable today. Passwords are compared in plaintext here purely
-// for the mock — the real backend must hash passwords (e.g. bcrypt/argon2)
-// and issue a real session token (JWT) instead of the fake token below.
+// MOCK AUTH LAYER supporting TWO access modes:
+//
+// 1. Admin access — full login (email + password), unchanged from before.
+//    Grants access to the whole dashboard (books, members, loans, AI).
+//
+// 2. Public access — no password, just the library's name. Grants access
+//    only to that library's public portal (browse catalog, view book
+//    availability, AI assistant) — never members, loans, or admin actions.
+//    This is enforced in two places: route guards (RequirePortalAccess vs
+//    RequireAuth) hide the UI, and src/lib/store.tsx additionally refuses
+//    to fetch member/loan data or run any mutating action unless an admin
+//    `account` is present — so even a bug in the UI can't leak or change
+//    admin-only data from the public portal.
+//
+// The real backend has no auth or library/tenant concept yet (see the note
+// at the top of types/index.ts and connect.md). This provider fakes both
+// flows using localStorage so the app is fully clickable today. Passwords
+// are compared in plaintext here purely for the mock — the real backend
+// must hash passwords and issue a real session token (JWT) instead.
 // ---------------------------------------------------------------------------
 
 const ACCOUNTS_KEY = "lms_accounts";
 const SESSION_KEY = "lms_current_account_id";
+const PUBLIC_SESSION_KEY = "lms_public_library_id";
 
 interface RegisterInput {
   name: string;
@@ -26,10 +40,14 @@ interface RegisterInput {
 interface AuthContextValue {
   account: LibraryAccount | null;
   accounts: LibraryAccount[];
+  publicLibrary: PublicLibrarySession | null;
+  role: "admin" | "public" | null;
   checking: boolean;
   login: (email: string, password: string) => { success: boolean; error?: string };
   register: (input: RegisterInput) => { success: boolean; error?: string };
   logout: () => void;
+  enterPublicPortal: (libraryName: string) => { success: boolean; error?: string };
+  exitPublicPortal: () => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -37,9 +55,10 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [accounts, setAccounts] = useState<LibraryAccount[]>(mockLibraryAccounts);
   const [account, setAccount] = useState<LibraryAccount | null>(null);
+  const [publicLibrary, setPublicLibrary] = useState<PublicLibrarySession | null>(null);
   const [checking, setChecking] = useState(true);
 
-  // Rehydrate accounts list + current session from localStorage on mount.
+  // Rehydrate accounts list + whichever session (admin or public) was active.
   useEffect(() => {
     try {
       const storedAccounts = localStorage.getItem(ACCOUNTS_KEY);
@@ -52,6 +71,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (storedSessionId) {
         const found = parsedAccounts.find((a) => a.id === Number(storedSessionId));
         if (found) setAccount(found);
+      }
+
+      const storedPublicId = localStorage.getItem(PUBLIC_SESSION_KEY);
+      if (storedPublicId) {
+        const found = parsedAccounts.find((a) => a.id === Number(storedPublicId));
+        if (found) {
+          setPublicLibrary({
+            id: found.id,
+            name: found.name,
+            email: found.email,
+            address: found.address,
+          });
+        }
       }
     } catch {
       // ignore malformed localStorage, fall back to defaults
@@ -95,8 +127,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem(SESSION_KEY);
   }
 
+  function enterPublicPortal(libraryName: string) {
+    const query = libraryName.trim().toLowerCase();
+    if (!query) return { success: false, error: "Enter a library name." };
+
+    const found = accounts.find((a) => a.name.trim().toLowerCase() === query);
+    if (!found) {
+      return {
+        success: false,
+        error: "No library found with that name. Check the spelling, or ask your library for their exact registered name.",
+      };
+    }
+
+    setPublicLibrary({ id: found.id, name: found.name, email: found.email, address: found.address });
+    localStorage.setItem(PUBLIC_SESSION_KEY, String(found.id));
+    return { success: true };
+  }
+
+  function exitPublicPortal() {
+    setPublicLibrary(null);
+    localStorage.removeItem(PUBLIC_SESSION_KEY);
+  }
+
+  const role: "admin" | "public" | null = account ? "admin" : publicLibrary ? "public" : null;
+
   return (
-    <AuthContext.Provider value={{ account, accounts, checking, login, register, logout }}>
+    <AuthContext.Provider
+      value={{
+        account,
+        accounts,
+        publicLibrary,
+        role,
+        checking,
+        login,
+        register,
+        logout,
+        enterPublicPortal,
+        exitPublicPortal,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

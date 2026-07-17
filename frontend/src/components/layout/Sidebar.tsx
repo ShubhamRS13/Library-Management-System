@@ -9,6 +9,7 @@ import {
   ArrowLeftRight,
   Sparkles,
   LogOut,
+  Globe,
   X,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
@@ -111,9 +112,16 @@ export default function Sidebar({
               <p className="truncate text-xs text-gray-400">{account?.email}</p>
             </div>
           </div>
+          <Link
+            href="/portal/books"
+            className="mt-2 flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+          >
+            <Globe size={18} strokeWidth={2} />
+            Preview public portal
+          </Link>
           <button
             onClick={handleLogout}
-            className="mt-2 flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+            className="mt-1 flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900"
           >
             <LogOut size={18} strokeWidth={2} />
             Log out

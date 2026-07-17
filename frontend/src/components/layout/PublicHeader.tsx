@@ -42,6 +42,9 @@ export default function PublicHeader() {
               </>
             ) : (
               <>
+                <Link href="/portal" className="font-medium text-gray-600 hover:text-brand-600">
+                  Browse a library
+                </Link>
                 <Link href="/login" className="font-medium text-gray-600 hover:text-brand-600">
                   Sign in
                 </Link>

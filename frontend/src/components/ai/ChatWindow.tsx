@@ -1,86 +1,137 @@
 "use client";
 
 import { useState } from "react";
-import { apiFetch } from "@/lib/api";
+import { RefreshCw } from "lucide-react";
+import { apiStreamNDJSON } from "@/lib/api";
+import RecommendedBookCard from "@/components/ai/RecommendedBookCard";
+
+interface RecommendedBook {
+  book_id: number;
+  title: string;
+  author: string;
+  is_available: boolean;
+}
+
+// Matches the real /ai/chat NDJSON response shape: {"message": "...", "recommended_books": [...]}
+interface AiChatChunk {
+  message: string;
+  recommended_books?: RecommendedBook[];
+}
 
 interface ChatMessage {
   id: string;
   role: "user" | "assistant";
   content: string;
+  recommendedBooks?: RecommendedBook[];
 }
 
-// ADJUST IF NEEDED: the exact request/response field names below are a
-// best guess (`message` in, `response` out). Expand POST /ai/chat in
-// Swagger UI and check the "Request body" / "Responses" schema — if the
-// field names differ, update AiChatRequest / AiChatResponse to match.
-interface AiChatRequest {
-  message: string;
+function newSessionId() {
+  return crypto.randomUUID();
 }
 
-interface AiChatResponse {
-  response: string;
-}
-
-export default function ChatWindow() {
+export default function ChatWindow({ bookLinkBasePath = "/books" }: { bookLinkBasePath?: string }) {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: "welcome",
       role: "assistant",
-      content: 'Ask me for a book recommendation, e.g. "suggest a mystery novel".',
+      content: 'Ask me for a book recommendation, e.g. "do you have Harry Potter books?"',
     },
   ]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  // Kept for the lifetime of this conversation, per the backend's session-based
+  // memory — regenerated only when "New conversation" is clicked.
+  const [sessionId, setSessionId] = useState(newSessionId);
 
   async function handleSend() {
     if (!input.trim() || sending) return;
 
     const userMessage: ChatMessage = { id: crypto.randomUUID(), role: "user", content: input };
-    setMessages((prev) => [...prev, userMessage]);
+    const assistantId = crypto.randomUUID();
+    setMessages((prev) => [...prev, userMessage, { id: assistantId, role: "assistant", content: "" }]);
     setInput("");
     setSending(true);
 
     try {
-      const result = await apiFetch<AiChatResponse>("/ai/chat", {
-        method: "POST",
-        body: JSON.stringify({ message: userMessage.content } satisfies AiChatRequest),
+      const params = new URLSearchParams({
+        message: userMessage.content,
+        session_id: sessionId,
       });
-      setMessages((prev) => [
-        ...prev,
-        { id: crypto.randomUUID(), role: "assistant", content: result.response },
-      ]);
+
+      await apiStreamNDJSON<AiChatChunk>(`/ai/chat?${params.toString()}`, (chunk) => {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantId
+              ? { ...m, content: chunk.message, recommendedBooks: chunk.recommended_books }
+              : m
+          )
+        );
+      }, { method: "POST" });
     } catch (err) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: crypto.randomUUID(),
-          role: "assistant",
-          content:
-            err instanceof Error
-              ? `Sorry, the assistant couldn't respond: ${err.message}`
-              : "Sorry, the assistant couldn't respond right now.",
-        },
-      ]);
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === assistantId
+            ? {
+                ...m,
+                content:
+                  err instanceof Error
+                    ? `Sorry, the assistant couldn't respond: ${err.message}`
+                    : "Sorry, the assistant couldn't respond right now.",
+              }
+            : m
+        )
+      );
     } finally {
       setSending(false);
     }
   }
 
+  function handleNewConversation() {
+    setSessionId(newSessionId());
+    setMessages([
+      {
+        id: "welcome",
+        role: "assistant",
+        content: 'Ask me for a book recommendation, e.g. "do you have Harry Potter books?"',
+      },
+    ]);
+  }
+
   return (
-    <div className="flex h-[24rem] flex-col rounded-xl border border-gray-200 bg-white shadow-sm">
+    <div className="flex h-[32rem] flex-col rounded-xl border border-gray-200 bg-white shadow-sm">
+      <div className="flex items-center justify-between border-b border-gray-100 px-4 py-2.5">
+        <span className="text-xs text-gray-400">Session: {sessionId.slice(0, 8)}</span>
+        <button
+          onClick={handleNewConversation}
+          className="flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-brand-700"
+        >
+          <RefreshCw size={12} />
+          New conversation
+        </button>
+      </div>
+
       <div className="flex-1 space-y-3 overflow-y-auto p-4">
         {messages.map((m) => (
-          <div
-            key={m.id}
-            className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${
-              m.role === "user" ? "ml-auto bg-brand-600 text-white" : "bg-gray-100 text-gray-800"
-            }`}
-          >
-            {m.content}
+          <div key={m.id} className={m.role === "user" ? "flex justify-end" : "flex flex-col gap-2"}>
+            <div
+              className={`max-w-[80%] whitespace-pre-line rounded-lg px-3 py-2 text-sm ${
+                m.role === "user" ? "bg-brand-600 text-white" : "bg-gray-100 text-gray-800"
+              }`}
+            >
+              {m.content || (sending && m.role === "assistant" ? "Thinking..." : m.content)}
+            </div>
+
+            {m.recommendedBooks && m.recommendedBooks.length > 0 && (
+              <div className="flex gap-3 overflow-x-auto pb-1">
+                {m.recommendedBooks.map((rb) => (
+                  <RecommendedBookCard key={rb.book_id} book={rb} basePath={bookLinkBasePath} />
+                ))}
+              </div>
+            )}
           </div>
         ))}
-        {sending && <div className="text-xs text-gray-400">Thinking...</div>}
       </div>
+
       <div className="flex gap-2 border-t border-gray-200 p-3">
         <input
           value={input}

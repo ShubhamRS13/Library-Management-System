@@ -1,12 +1,15 @@
 "use client";
 
 import { useState } from "react";
+import { Pencil, Trash2 } from "lucide-react";
 import { useLibrary } from "@/lib/store";
 import type { Member } from "@/types";
+import EditMemberModal from "@/components/admin/EditMemberModal";
 
 export default function AdminMembersPage() {
-  const { members, addMember, updateMemberStatus } = useLibrary();
+  const { members, addMember, updateMemberStatus, deleteMember } = useLibrary();
   const [showForm, setShowForm] = useState(false);
+  const [editingMember, setEditingMember] = useState<Member | null>(null);
   const [form, setForm] = useState({
     first_name: "",
     last_name: "",
@@ -15,12 +18,40 @@ export default function AdminMembersPage() {
     address: "",
   });
 
-  function handleSubmit(e: React.FormEvent) {
+  const [formError, setFormError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.first_name || !form.last_name || !form.email || !form.phone_number) return;
-    addMember(form);
-    setForm({ first_name: "", last_name: "", email: "", phone_number: "", address: "" });
-    setShowForm(false);
+    setSubmitting(true);
+    setFormError("");
+    try {
+      await addMember(form);
+      setForm({ first_name: "", last_name: "", email: "", phone_number: "", address: "" });
+      setShowForm(false);
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : "Could not save this member.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleDelete(member: Member) {
+    if (!confirm(`Remove ${member.first_name} ${member.last_name} from your members?`)) return;
+    try {
+      await deleteMember(member.id);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Could not delete this member.");
+    }
+  }
+
+  async function handleStatusChange(memberId: number, status: Member["membership_status"]) {
+    try {
+      await updateMemberStatus(memberId, status);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Could not update member status.");
+    }
   }
 
   return (
@@ -75,11 +106,13 @@ export default function AdminMembersPage() {
             onChange={(e) => setForm({ ...form, address: e.target.value })}
             className="col-span-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
           />
+          {formError && <p className="col-span-full text-sm text-red-600">{formError}</p>}
           <button
             type="submit"
-            className="col-span-full rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
+            disabled={submitting}
+            className="col-span-full rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-gray-300"
           >
-            Save member
+            {submitting ? "Saving..." : "Save member"}
           </button>
         </form>
       )}
@@ -93,6 +126,7 @@ export default function AdminMembersPage() {
               <th className="px-4 py-3 font-medium">Phone</th>
               <th className="px-4 py-3 font-medium">Total loans</th>
               <th className="px-4 py-3 font-medium">Status</th>
+              <th className="px-4 py-3 font-medium"></th>
             </tr>
           </thead>
           <tbody>
@@ -108,7 +142,7 @@ export default function AdminMembersPage() {
                   <select
                     value={member.membership_status}
                     onChange={(e) =>
-                      updateMemberStatus(member.id, e.target.value as Member["membership_status"])
+                      handleStatusChange(member.id, e.target.value as Member["membership_status"])
                     }
                     className="rounded-md border border-gray-300 px-2 py-1 text-xs focus:border-brand-500 focus:outline-none"
                   >
@@ -117,11 +151,40 @@ export default function AdminMembersPage() {
                     <option value="expired">expired</option>
                   </select>
                 </td>
+                <td className="px-4 py-3">
+                  <div className="flex justify-end gap-3">
+                    <button
+                      onClick={() => setEditingMember(member)}
+                      className="flex items-center gap-1 text-gray-600 hover:text-brand-700"
+                    >
+                      <Pencil size={14} />
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => handleDelete(member)}
+                      className="flex items-center gap-1 text-red-600 hover:text-red-700"
+                    >
+                      <Trash2 size={14} />
+                      Delete
+                    </button>
+                  </div>
+                </td>
               </tr>
             ))}
+            {members.length === 0 && (
+              <tr>
+                <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-400">
+                  No members yet — add one to get started.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
+
+      {editingMember && (
+        <EditMemberModal member={editingMember} onClose={() => setEditingMember(null)} />
+      )}
     </div>
   );
 }

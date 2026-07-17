@@ -44,16 +44,22 @@ export default function HomePage() {
           ) : (
             <>
               <Link
-                href="/register"
+                href="/portal"
                 className="rounded-md bg-brand-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-700"
               >
-                Register your library
+                Browse a library
               </Link>
               <Link
                 href="/login"
                 className="rounded-md border border-brand-600 px-5 py-2.5 text-sm font-medium text-brand-700 hover:bg-brand-50"
               >
-                Sign in
+                Library admin sign in
+              </Link>
+              <Link
+                href="/register"
+                className="rounded-md border border-gray-300 px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Register your library
               </Link>
             </>
           )}

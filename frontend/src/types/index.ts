@@ -19,6 +19,15 @@ export interface LibraryAccount {
   created_at: string; // ISO date
 }
 
+// A public visitor's session: just enough to identify which library's
+// portal they're browsing, deliberately excluding the password field.
+export interface PublicLibrarySession {
+  id: number;
+  name: string;
+  email: string;
+  address?: string | null;
+}
+
 export interface Book {
   id: number;
   title: string;
